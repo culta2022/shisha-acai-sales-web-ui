@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>シーシャ×アサイー 売上管理</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header>
+  <span>💨🍇</span>
+  <h1>シーシャ×アサイー 売上管理</h1>
+</header>
+
+<nav>
+  <button class="active" data-tab="entry">売上入力</button>
+  <button data-tab="summary">集計・グラフ</button>
+  <button data-tab="history">履歴</button>
+</nav>
+
+<main>
+
+  <!-- ── 売上入力 ── -->
+  <section id="entry" class="section active">
+    <div class="card">
+      <h2>売上を記録する</h2>
+      <form id="entry-form" autocomplete="off">
+        <div class="form-grid">
+          <div>
+            <label>日付</label>
+            <input type="date" name="date" id="entry-date" required>
+          </div>
+          <div>
+            <label>カテゴリ</label>
+            <select name="category" id="cat" required>
+              <option value="shisha">💨 シーシャ</option>
+              <option value="acai">🍇 アサイー</option>
+              <option value="drink">🥤 ドリンク</option>
+            </select>
+          </div>
+          <div>
+            <label>品目</label>
+            <input type="text" name="item" list="item-list" placeholder="例：シーシャ（1時間）" required>
+            <datalist id="item-list">
+              <option value="シーシャ（1時間）">
+              <option value="シーシャ（2時間）">
+              <option value="シーシャ（3時間）">
+              <option value="フレーバー追加">
+            </datalist>
+          </div>
+          <div>
+            <label>数量</label>
+            <input type="number" name="qty" value="1" min="1" required>
+          </div>
+          <div>
+            <label>単価（円）</label>
+            <input type="number" name="price" placeholder="1500" min="0" required>
+          </div>
+          <div>
+            <label>メモ</label>
+            <input type="text" name="note" placeholder="任意">
+          </div>
+        </div>
+        <div class="form-row">
+          <button type="submit" class="btn btn-primary">記録する</button>
+          <button type="reset" class="btn btn-secondary">リセット</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ── 集計・グラフ ── -->
+  <section id="summary" class="section">
+    <div class="filter-row">
+      <div class="filter-item">
+        <label>月を選択</label>
+        <input type="month" id="sum-month">
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="kpi">
+        <div class="label">合計売上</div>
+        <div class="value" id="kpi-total">¥0</div>
+      </div>
+      <div class="kpi shisha">
+        <div class="label">💨 シーシャ</div>
+        <div class="value" id="kpi-shisha">¥0</div>
+      </div>
+      <div class="kpi acai">
+        <div class="label">🍇 アサイー</div>
+        <div class="value" id="kpi-acai">¥0</div>
+      </div>
+      <div class="kpi drink">
+        <div class="label">🥤 ドリンク</div>
+        <div class="value" id="kpi-drink">¥0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>日別売上（棒グラフ）</h2>
+      <div class="chart-wrap">
+        <canvas id="chart-bar"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>カテゴリ比率</h2>
+      <div class="chart-wrap">
+        <canvas id="chart-pie"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 履歴 ── -->
+  <section id="history" class="section">
+    <div class="filter-row">
+      <div class="filter-item">
+        <label>日付で絞り込み</label>
+        <input type="date" id="hist-date">
+      </div>
+      <div class="filter-item">
+        <label>カテゴリ</label>
+        <select id="hist-cat">
+          <option value="">すべて</option>
+          <option value="shisha">💨 シーシャ</option>
+          <option value="acai">🍇 アサイー</option>
+          <option value="drink">🥤 ドリンク</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary" id="btn-csv" style="margin-left:auto">CSV出力</button>
+      <button class="btn btn-danger" id="btn-clear">全削除</button>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <table>
+        <thead>
+          <tr>
+            <th>日付</th>
+            <th>カテゴリ</th>
+            <th>品目</th>
+            <th style="text-align:right">数量</th>
+            <th style="text-align:right">単価</th>
+            <th style="text-align:right">合計</th>
+            <th>メモ</th>
+          </tr>
+        </thead>
+        <tbody id="history-tbody">
+          <tr><td colspan="7" class="empty">データがありません</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast" class="toast"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
