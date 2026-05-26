@@ -749,3 +749,136 @@ textarea:focus { outline: none; border-color: var(--accent); }
   font-weight: 500;
   line-height: 1.5;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ダッシュボード
+══════════════════════════════════════════════════════════════════════════════ */
+
+.dash-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.dash-filter-row label {
+  display: inline;
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+  margin: 0;
+}
+
+.dash-filter-row input[type="month"] {
+  width: auto;
+  max-width: 180px;
+}
+
+.dash-section-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  margin: 20px 0 10px;
+}
+
+/* KPI グリッド */
+.dash-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 600px) {
+  .dash-kpi-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.dash-kpi {
+  border-radius: 12px;
+  padding: 13px 14px;
+  border: 1px solid transparent;
+}
+
+.dk-label {
+  font-size: 0.71rem;
+  font-weight: 600;
+  color: inherit;
+  opacity: 0.75;
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dk-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.dk-sub {
+  font-size: 0.67rem;
+  opacity: 0.65;
+  margin-top: 3px;
+}
+
+/* KPI カラーバリアント */
+.dk-green   { background: #e8f8f0; color: #1e8449; border-color: #a9dfbf; }
+.dk-shisha  { background: #d6eaf8; color: #1a5276; border-color: #aed6f1; }
+.dk-acai    { background: #e8daef; color: #6c3483; border-color: #c39bd3; }
+.dk-orange  { background: #fef5e7; color: #d35400; border-color: #f9e3c0; }
+.dk-profit  { background: #e8f8f0; color: #1e8449; border-color: #a9dfbf; }
+.dk-profit.is-loss { background: #fdedec; color: #c0392b; border-color: #f5b7b1; }
+.dk-blue    { background: #eaf4fb; color: #1a5276; border-color: #aed6f1; }
+.dk-neutral { background: var(--card); color: var(--text); border-color: var(--border); }
+.dk-warn    { background: #fef9e7; color: #9a7d0a; border-color: #f4d03f; }
+
+/* 経営コメント */
+.mgmt-comments {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 18px 0 4px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.mgmt-comments-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mgmt-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 7px 0;
+  font-size: 0.86rem;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.55;
+}
+
+.mgmt-comment:last-child { border-bottom: none; }
+
+.mgmt-comment.ok   { color: #1e8449; }
+.mgmt-comment.warn { color: #d35400; }
+.mgmt-comment.bad  { color: #c0392b; font-weight: 600; }
+.mgmt-comment.info { color: var(--text); }
+
+/* チャート 2列グリッド */
+.dash-charts-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 700px) {
+  .dash-charts-2col { grid-template-columns: 1fr; }
+}
+
+.chart-wrap-sm { height: 200px; }

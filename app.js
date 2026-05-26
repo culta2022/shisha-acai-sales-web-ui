@@ -40,7 +40,7 @@ document.querySelectorAll('nav button[data-tab]').forEach(btn => {
     btn.classList.add('active');
     document.getElementById(btn.dataset.tab).classList.add('active');
     if (btn.dataset.tab === 'today')   showTodaySection('landing');
-    if (btn.dataset.tab === 'summary') renderSummary();
+    if (btn.dataset.tab === 'summary') renderDashboard();
     if (btn.dataset.tab === 'history') renderHistory();
   });
 });
@@ -403,76 +403,280 @@ document.getElementById('cat').addEventListener('change', (e) => {
   });
 });
 
-// ── Summary ───────────────────────────────────────────────────────────────────
-let chartBar, chartPie;
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+const MONTHLY_TARGET = 500000;
+const _charts = {};
 
-function renderSummary() {
-  const month = document.getElementById('sum-month').value;
-  const filtered = month
-    ? records.filter(r => r.date.startsWith(month))
-    : records;
+function aggregateDashboard(monthStr) {
+  const shishaAll  = getShishaSales();
+  const acaiAll    = getAcaiSales();
+  const expenseAll = getExpenses();
 
-  const total = filtered.reduce((s, r) => s + r.total, 0);
-  const byCategory = { shisha: 0, acai: 0, drink: 0 };
-  filtered.forEach(r => { byCategory[r.category] = (byCategory[r.category] || 0) + r.total; });
+  const shisha  = shishaAll.filter(r => r.date.startsWith(monthStr));
+  const acai    = acaiAll.filter(r => r.date.startsWith(monthStr));
+  const expense = expenseAll.filter(r => r.date.startsWith(monthStr));
 
-  document.getElementById('kpi-total').textContent  = fmt(total);
-  document.getElementById('kpi-shisha').textContent = fmt(byCategory.shisha || 0);
-  document.getElementById('kpi-acai').textContent   = fmt(byCategory.acai || 0);
-  document.getElementById('kpi-drink').textContent  = fmt(byCategory.drink || 0);
+  const shishaTotal  = shisha.reduce((s, r) => s + (r.totalAmount || 0), 0);
+  const acaiTotal    = acai.reduce((s, r) => s + (r.totalAmount || 0), 0);
+  const expenseTotal = expense.reduce((s, r) => s + (r.amount || 0), 0);
+  const salesTotal   = shishaTotal + acaiTotal;
+  const profit       = salesTotal - expenseTotal;
+  const profitRate   = salesTotal > 0 ? Math.round((profit / salesTotal) * 1000) / 10 : null;
 
-  // 日別集計
-  const byDay = {};
-  filtered.forEach(r => { byDay[r.date] = (byDay[r.date] || 0) + r.total; });
-  const days = Object.keys(byDay).sort();
+  const acaiByChannel = { '店頭': 0, 'Rocket Now': 0, 'Uber Eats': 0, 'その他': 0 };
+  acai.forEach(r => { acaiByChannel[r.channel] = (acaiByChannel[r.channel] || 0) + (r.totalAmount || 0); });
 
-  // Bar chart
-  if (chartBar) chartBar.destroy();
-  chartBar = new Chart(document.getElementById('chart-bar'), {
-    type: 'bar',
-    data: {
-      labels: days.map(d => d.slice(5)),
-      datasets: [{
-        label: '日別売上',
-        data: days.map(d => byDay[d]),
-        backgroundColor: '#a569bd88',
-        borderColor: '#6c3483',
-        borderWidth: 2,
-        borderRadius: 6,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { ticks: { callback: v => '¥' + v.toLocaleString() } }
-      }
-    }
+  const visitors = shisha.reduce((s, r) => s + (r.totalCount || 0), 0);
+  const avgSpend = visitors > 0 ? Math.round(shishaTotal / visitors) : 0;
+  const unpaid   = shisha.reduce((s, r) => s + (r.unpaidAmount || 0), 0);
+
+  const expByCategory = {};
+  expense.forEach(r => { expByCategory[r.category] = (expByCategory[r.category] || 0) + (r.amount || 0); });
+
+  const payByMethod = { '現金': 0, 'カード': 0, 'QR': 0, 'Rocket Now': 0, 'Uber Eats': 0 };
+  shisha.forEach(r => {
+    payByMethod['現金']   += r.cashAmount || 0;
+    payByMethod['カード'] += r.cardAmount || 0;
+    payByMethod['QR']     += r.qrAmount   || 0;
+  });
+  acai.forEach(r => {
+    payByMethod['現金']       += r.cashAmount      || 0;
+    payByMethod['カード']     += r.cardAmount      || 0;
+    payByMethod['QR']         += r.qrAmount        || 0;
+    payByMethod['Rocket Now'] += r.rocketNowAmount || 0;
+    payByMethod['Uber Eats']  += r.uberEatsAmount  || 0;
   });
 
-  // Pie chart
-  if (chartPie) chartPie.destroy();
-  chartPie = new Chart(document.getElementById('chart-pie'), {
-    type: 'doughnut',
+  // 過去30日（日別）
+  const dailyData = {};
+  const now = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    dailyData[d.toISOString().slice(0, 10)] = { shisha: 0, acai: 0 };
+  }
+  shishaAll.forEach(r => { if (dailyData[r.date]) dailyData[r.date].shisha += r.totalAmount || 0; });
+  acaiAll.forEach(r => { if (dailyData[r.date]) dailyData[r.date].acai   += r.totalAmount || 0; });
+
+  // 過去12ヶ月（月別）
+  const monthlyData = {};
+  for (let i = 11; i >= 0; i--) {
+    const d  = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ms = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthlyData[ms] = { shisha: 0, acai: 0 };
+  }
+  shishaAll.forEach(r => { const m = r.date.slice(0, 7); if (monthlyData[m]) monthlyData[m].shisha += r.totalAmount || 0; });
+  acaiAll.forEach(r => { const m = r.date.slice(0, 7); if (monthlyData[m]) monthlyData[m].acai   += r.totalAmount || 0; });
+
+  return {
+    shishaTotal, acaiTotal, expenseTotal, salesTotal,
+    profit, profitRate,
+    acaiByChannel, visitors, avgSpend, unpaid,
+    expByCategory, payByMethod,
+    dailyData, monthlyData,
+    targetRate: salesTotal > 0 ? Math.round((salesTotal / MONTHLY_TARGET) * 100) : 0,
+  };
+}
+
+function generateMgmtComments(d) {
+  const items = [];
+
+  if (d.salesTotal === 0) {
+    items.push({ type: 'info', text: 'この月のデータはまだありません。' });
+    return items;
+  }
+
+  if (d.targetRate >= 100) {
+    items.push({ type: 'ok', text: `🎉 月間目標達成！ 目標の ${d.targetRate}% を達成しました。` });
+  } else if (d.targetRate >= 80) {
+    items.push({ type: 'info', text: `📌 月間目標の ${d.targetRate}% 達成。あと ¥${(MONTHLY_TARGET - d.salesTotal).toLocaleString()} で達成です。` });
+  } else {
+    items.push({ type: 'warn', text: `⚠️ 月間目標の ${d.targetRate}% 達成。目標まで ¥${(MONTHLY_TARGET - d.salesTotal).toLocaleString()} 残っています。` });
+  }
+
+  if (d.profitRate !== null) {
+    if (d.profitRate < 0) {
+      items.push({ type: 'bad', text: `🚨 営業利益がマイナスです（${d.profitRate}%）。経費を今すぐ見直してください。` });
+    } else if (d.profitRate < 15) {
+      items.push({ type: 'warn', text: `⚠️ 利益率が低めです（${d.profitRate}%）。仕入れコストや経費を確認しましょう。` });
+    } else if (d.profitRate >= 30) {
+      items.push({ type: 'ok', text: `✅ 利益率は良好です（${d.profitRate}%）。この調子で継続しましょう。` });
+    }
+  }
+
+  if (d.unpaid > 0) {
+    items.push({ type: 'warn', text: `💴 未収金 ¥${d.unpaid.toLocaleString()} があります。回収状況を確認してください。` });
+  }
+
+  if (d.acaiByChannel['Uber Eats'] > 0 && d.acaiByChannel['Uber Eats'] > d.acaiByChannel['店頭']) {
+    items.push({ type: 'info', text: `🛵 Uber Eats の売上が店頭を上回っています。手数料負担を定期的に確認しましょう。` });
+  }
+
+  if (d.visitors > 0) {
+    if (d.avgSpend < 3000) {
+      items.push({ type: 'warn', text: `📉 シーシャの客単価が ¥${d.avgSpend.toLocaleString()} と低めです。ドリンクのアップセルを検討しましょう。` });
+    } else if (d.avgSpend >= 5000) {
+      items.push({ type: 'ok', text: `👍 シーシャの客単価が ¥${d.avgSpend.toLocaleString()} と高水準です。` });
+    }
+  }
+
+  return items;
+}
+
+function renderMgmtComments(items) {
+  const el = document.getElementById('mgmt-comments');
+  el.innerHTML = `<div class="mgmt-comments-title">💡 経営コメント</div>` +
+    items.map(c => `<div class="mgmt-comment ${c.type}">${c.text}</div>`).join('');
+}
+
+function destroyChart(id) {
+  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+}
+
+function renderDashCharts(d) {
+  const dailyKeys   = Object.keys(d.dailyData);
+  const monthlyKeys = Object.keys(d.monthlyData);
+
+  // 日別売上（過去30日）
+  destroyChart('daily');
+  _charts['daily'] = new Chart(document.getElementById('chart-daily'), {
+    type: 'bar',
     data: {
-      labels: ['シーシャ', 'アサイー', 'ドリンク'],
-      datasets: [{
-        data: [byCategory.shisha || 0, byCategory.acai || 0, byCategory.drink || 0],
-        backgroundColor: ['#1a527688', '#7d3c9888', '#117a6588'],
-        borderColor: ['#1a5276', '#7d3c98', '#117a65'],
-        borderWidth: 2,
-      }]
+      labels: dailyKeys.map(k => k.slice(5)),
+      datasets: [
+        { label: 'シーシャ', data: dailyKeys.map(k => d.dailyData[k].shisha),
+          backgroundColor: '#1a527688', borderColor: '#1a5276', borderWidth: 1, borderRadius: 3, stack: 'sales' },
+        { label: 'アサイー', data: dailyKeys.map(k => d.dailyData[k].acai),
+          backgroundColor: '#7d3c9888', borderColor: '#7d3c98', borderWidth: 1, borderRadius: 3, stack: 'sales' },
+      ],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom' } }
-    }
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+      scales: {
+        x: { stacked: true, ticks: { font: { size: 9 } } },
+        y: { stacked: true, ticks: { callback: v => '¥' + v.toLocaleString(), font: { size: 9 } } },
+      },
+    },
+  });
+
+  // 月別売上（過去12ヶ月）
+  destroyChart('monthly');
+  _charts['monthly'] = new Chart(document.getElementById('chart-monthly'), {
+    type: 'bar',
+    data: {
+      labels: monthlyKeys.map(k => k.slice(5) + '月'),
+      datasets: [
+        { label: 'シーシャ', data: monthlyKeys.map(k => d.monthlyData[k].shisha),
+          backgroundColor: '#1a527688', borderColor: '#1a5276', borderWidth: 1, borderRadius: 3, stack: 'sales' },
+        { label: 'アサイー', data: monthlyKeys.map(k => d.monthlyData[k].acai),
+          backgroundColor: '#7d3c9888', borderColor: '#7d3c98', borderWidth: 1, borderRadius: 3, stack: 'sales' },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+      scales: {
+        x: { stacked: true, ticks: { font: { size: 9 } } },
+        y: { stacked: true, ticks: { callback: v => '¥' + v.toLocaleString(), font: { size: 9 } } },
+      },
+    },
+  });
+
+  // シーシャ vs アサイー（ドーナツ）
+  destroyChart('category');
+  _charts['category'] = new Chart(document.getElementById('chart-category'), {
+    type: 'doughnut',
+    data: {
+      labels: ['💨 シーシャ', '🍇 アサイー'],
+      datasets: [{ data: [d.shishaTotal, d.acaiTotal],
+        backgroundColor: ['#1a527688', '#7d3c9888'],
+        borderColor: ['#1a5276', '#7d3c98'], borderWidth: 2 }],
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } },
+  });
+
+  // アサイー チャネル別（ドーナツ）
+  destroyChart('acaiChannel');
+  _charts['acaiChannel'] = new Chart(document.getElementById('chart-acai-channel'), {
+    type: 'doughnut',
+    data: {
+      labels: ['🏪 店頭', '🚀 Rocket Now', '🛵 Uber Eats', '📦 その他'],
+      datasets: [{ data: [d.acaiByChannel['店頭'], d.acaiByChannel['Rocket Now'], d.acaiByChannel['Uber Eats'], d.acaiByChannel['その他']],
+        backgroundColor: ['#27ae6088', '#2980b988', '#8e44ad88', '#95a5a688'],
+        borderColor: ['#27ae60', '#2980b9', '#8e44ad', '#95a5a6'], borderWidth: 2 }],
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } },
+  });
+
+  // 経費内訳（ドーナツ）
+  destroyChart('expensePie');
+  const expLabels = Object.keys(d.expByCategory);
+  const expValues = Object.values(d.expByCategory);
+  const expPalette = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db','#9b59b6','#1abc9c','#34495e'];
+  _charts['expensePie'] = new Chart(document.getElementById('chart-expense-pie'), {
+    type: 'doughnut',
+    data: {
+      labels: expLabels.length ? expLabels : ['データなし'],
+      datasets: [{ data: expValues.length ? expValues : [1],
+        backgroundColor: expLabels.length ? expPalette.slice(0, expLabels.length).map(c => c + '88') : ['#ccc8'],
+        borderColor: expLabels.length ? expPalette.slice(0, expLabels.length) : ['#999'], borderWidth: 2 }],
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } } } },
+  });
+
+  // 支払い方法別（バー）
+  destroyChart('payment');
+  const payLabels = Object.keys(d.payByMethod).filter(k => d.payByMethod[k] > 0);
+  const payValues = payLabels.map(k => d.payByMethod[k]);
+  _charts['payment'] = new Chart(document.getElementById('chart-payment'), {
+    type: 'bar',
+    data: {
+      labels: payLabels.length ? payLabels : ['データなし'],
+      datasets: [{ label: '受取額', data: payValues.length ? payValues : [0],
+        backgroundColor: '#6c348388', borderColor: '#6c3483', borderWidth: 1, borderRadius: 6 }],
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => '¥' + v.toLocaleString(), font: { size: 9 } } },
+        x: { ticks: { font: { size: 10 } } },
+      },
+    },
   });
 }
 
-document.getElementById('sum-month').addEventListener('change', renderSummary);
+function renderDashboard() {
+  const month = document.getElementById('sum-month').value;
+  const d = aggregateDashboard(month);
+
+  document.getElementById('dk-total').textContent       = fmt(d.salesTotal);
+  document.getElementById('dk-shisha').textContent      = fmt(d.shishaTotal);
+  document.getElementById('dk-acai').textContent        = fmt(d.acaiTotal);
+  document.getElementById('dk-expense').textContent     = fmt(d.expenseTotal);
+  document.getElementById('dk-profit').textContent      = fmt(d.profit);
+  document.getElementById('dk-profit-rate').textContent = d.profitRate !== null ? d.profitRate + '%' : '—';
+
+  const profitCard = document.getElementById('dk-profit-card');
+  if (d.profit < 0) profitCard.classList.add('is-loss');
+  else profitCard.classList.remove('is-loss');
+
+  document.getElementById('dk-target-rate').textContent  = d.salesTotal > 0 ? d.targetRate + '%' : '—';
+  document.getElementById('dk-visitors').textContent     = d.visitors + ' 人';
+  document.getElementById('dk-avg-spend').textContent    = fmt(d.avgSpend);
+  document.getElementById('dk-acai-instore').textContent = fmt(d.acaiByChannel['店頭']);
+  document.getElementById('dk-acai-rocket').textContent  = fmt(d.acaiByChannel['Rocket Now']);
+  document.getElementById('dk-acai-uber').textContent    = fmt(d.acaiByChannel['Uber Eats']);
+  document.getElementById('dk-unpaid').textContent       = fmt(d.unpaid);
+
+  renderMgmtComments(generateMgmtComments(d));
+  renderDashCharts(d);
+}
+
+document.getElementById('sum-month').addEventListener('change', renderDashboard);
 document.getElementById('sum-month').value = today().slice(0, 7);
 
 // ── History ───────────────────────────────────────────────────────────────────
@@ -534,10 +738,10 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   records = [];
   saveRecords(records);
   renderHistory();
-  renderSummary();
+  renderDashboard();
   showToast('全データを削除しました');
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-renderSummary();
+renderDashboard();
 renderTodayStats();

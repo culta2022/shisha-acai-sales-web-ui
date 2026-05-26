@@ -16,7 +16,7 @@
 
 <nav>
   <button class="active" data-tab="today">今日の入力</button>
-  <button data-tab="summary">集計・グラフ</button>
+  <button data-tab="summary">ダッシュボード</button>
   <button data-tab="history">履歴</button>
 </nav>
 
@@ -465,45 +465,105 @@
     </div>
   </section>
 
-  <!-- ── 集計・グラフ ── -->
+  <!-- ── ダッシュボード ── -->
   <section id="summary" class="section">
-    <div class="filter-row">
-      <div class="filter-item">
-        <label>月を選択</label>
-        <input type="month" id="sum-month">
+    <div class="dash-filter-row">
+      <label>月を選択</label>
+      <input type="month" id="sum-month">
+    </div>
+
+    <!-- 当月 KPI -->
+    <div class="dash-section-label">📊 当月サマリー</div>
+    <div class="dash-kpi-grid">
+      <div class="dash-kpi dk-green">
+        <div class="dk-label">当月売上合計</div>
+        <div class="dk-value" id="dk-total">¥0</div>
+      </div>
+      <div class="dash-kpi dk-shisha">
+        <div class="dk-label">💨 シーシャ売上</div>
+        <div class="dk-value" id="dk-shisha">¥0</div>
+      </div>
+      <div class="dash-kpi dk-acai">
+        <div class="dk-label">🍇 アサイー売上</div>
+        <div class="dk-value" id="dk-acai">¥0</div>
+      </div>
+      <div class="dash-kpi dk-orange">
+        <div class="dk-label">経費合計</div>
+        <div class="dk-value" id="dk-expense">¥0</div>
+      </div>
+      <div class="dash-kpi dk-profit" id="dk-profit-card">
+        <div class="dk-label">営業利益</div>
+        <div class="dk-value" id="dk-profit">¥0</div>
+      </div>
+      <div class="dash-kpi dk-blue">
+        <div class="dk-label">利益率</div>
+        <div class="dk-value" id="dk-profit-rate">—</div>
       </div>
     </div>
 
-    <div class="summary-grid">
-      <div class="kpi">
-        <div class="label">合計売上</div>
-        <div class="value" id="kpi-total">¥0</div>
+    <!-- 詳細 KPI -->
+    <div class="dash-section-label">📦 詳細データ</div>
+    <div class="dash-kpi-grid">
+      <div class="dash-kpi dk-neutral">
+        <div class="dk-label">目標達成率</div>
+        <div class="dk-value" id="dk-target-rate">—</div>
+        <div class="dk-sub">目標 ¥500,000</div>
       </div>
-      <div class="kpi shisha">
-        <div class="label">💨 シーシャ</div>
-        <div class="value" id="kpi-shisha">¥0</div>
+      <div class="dash-kpi dk-neutral">
+        <div class="dk-label">シーシャ来客数</div>
+        <div class="dk-value" id="dk-visitors">0 人</div>
       </div>
-      <div class="kpi acai">
-        <div class="label">🍇 アサイー</div>
-        <div class="value" id="kpi-acai">¥0</div>
+      <div class="dash-kpi dk-neutral">
+        <div class="dk-label">シーシャ客単価</div>
+        <div class="dk-value" id="dk-avg-spend">¥0</div>
       </div>
-      <div class="kpi drink">
-        <div class="label">🥤 ドリンク</div>
-        <div class="value" id="kpi-drink">¥0</div>
+      <div class="dash-kpi dk-neutral">
+        <div class="dk-label">🏪 店頭アサイー</div>
+        <div class="dk-value" id="dk-acai-instore">¥0</div>
+      </div>
+      <div class="dash-kpi dk-neutral">
+        <div class="dk-label">🚀 Rocket Now</div>
+        <div class="dk-value" id="dk-acai-rocket">¥0</div>
+      </div>
+      <div class="dash-kpi dk-neutral">
+        <div class="dk-label">🛵 Uber Eats</div>
+        <div class="dk-value" id="dk-acai-uber">¥0</div>
+      </div>
+      <div class="dash-kpi dk-warn">
+        <div class="dk-label">⚠️ 未収金</div>
+        <div class="dk-value" id="dk-unpaid">¥0</div>
       </div>
     </div>
 
-    <div class="card">
-      <h2>日別売上（棒グラフ）</h2>
-      <div class="chart-wrap">
-        <canvas id="chart-bar"></canvas>
-      </div>
-    </div>
+    <!-- 経営コメント -->
+    <div id="mgmt-comments" class="mgmt-comments"></div>
 
-    <div class="card">
-      <h2>カテゴリ比率</h2>
-      <div class="chart-wrap">
-        <canvas id="chart-pie"></canvas>
+    <!-- チャート -->
+    <div class="dash-section-label">📈 チャート</div>
+    <div class="dash-charts-2col">
+      <div class="card">
+        <h2>日別売上（過去30日）</h2>
+        <div class="chart-wrap"><canvas id="chart-daily"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>月別売上（過去12ヶ月）</h2>
+        <div class="chart-wrap"><canvas id="chart-monthly"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>シーシャ vs アサイー</h2>
+        <div class="chart-wrap chart-wrap-sm"><canvas id="chart-category"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>アサイー チャネル別</h2>
+        <div class="chart-wrap chart-wrap-sm"><canvas id="chart-acai-channel"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>経費内訳</h2>
+        <div class="chart-wrap chart-wrap-sm"><canvas id="chart-expense-pie"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>支払い方法別</h2>
+        <div class="chart-wrap chart-wrap-sm"><canvas id="chart-payment"></canvas></div>
       </div>
     </div>
   </section>
