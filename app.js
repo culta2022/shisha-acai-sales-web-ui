@@ -79,6 +79,195 @@ document.getElementById('back-from-shisha').addEventListener('click',   () => sh
 document.getElementById('back-from-acai').addEventListener('click',     () => showTodaySection('landing'));
 document.getElementById('back-from-expense').addEventListener('click',  () => showTodaySection('landing'));
 
+// ── Acai Form ────────────────────────────────────────────────────────────────
+const CH_CONFIG = {
+  '店頭':       { emoji: '🏪', cls: 'ch-instore' },
+  'Rocket Now': { emoji: '🚀', cls: 'ch-rocket'  },
+  'Uber Eats':  { emoji: '🛵', cls: 'ch-uber'    },
+  'その他':     { emoji: '📦', cls: 'ch-other'   },
+};
+
+function showAcaiStep(step) {
+  document.getElementById('acai-ch-step').hidden     = (step !== 'channel');
+  document.getElementById('acai-form-wrap').hidden   = (step !== 'form');
+  document.getElementById('acai-saved-state').hidden = (step !== 'saved');
+}
+
+function selectAcaiChannel(ch) {
+  const cfg = CH_CONFIG[ch] || { emoji: '📦', cls: 'ch-other' };
+  const badge = document.getElementById('acai-ch-badge');
+  badge.className = 'acai-ch-badge ' + cfg.cls;
+  document.getElementById('acai-badge-icon').textContent  = cfg.emoji;
+  document.getElementById('acai-badge-label').textContent = ch;
+  document.getElementById('acai-channel-val').value       = ch;
+  showAcaiStep('form');
+  recalcAcai();
+}
+
+// チャネルボタン
+document.querySelectorAll('.ch-btn[data-ch]').forEach(btn => {
+  btn.addEventListener('click', () => selectAcaiChannel(btn.dataset.ch));
+});
+
+document.getElementById('btn-acai-ch-change').addEventListener('click', () => showAcaiStep('channel'));
+
+// 今日の日付をセット
+document.getElementById('acai-date').value = today();
+
+// Toggle group（フォーム内の顧客区分・サイズ）
+document.querySelectorAll('.toggle-group').forEach(group => {
+  const form  = group.closest('form');
+  const input = form
+    ? form.querySelector(`[name="${group.dataset.target}"]`)
+    : document.querySelector(`[name="${group.dataset.target}"]`);
+  group.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (input) input.value = btn.dataset.val;
+    });
+  });
+});
+
+// 数量 +/− ボタン
+document.querySelectorAll('.qty-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById(btn.dataset.target);
+    if (!input) return;
+    const v = Number(input.value) || 0;
+    if (btn.dataset.action === 'inc') input.value = v + 1;
+    if (btn.dataset.action === 'dec' && v > 1) input.value = v - 1;
+    input.dispatchEvent(new Event('input'));
+  });
+});
+
+// リアルタイム計算
+function recalcAcai() {
+  const nv = (id) => Number(document.getElementById(id)?.value) || 0;
+
+  const qty          = nv('acai-qty');
+  const unitPrice    = nv('acai-unit-price');
+  const productSales = qty * unitPrice;
+  const toppingSales = nv('acai-topping');
+  const deliveryFee  = nv('acai-delivery');
+  const discount     = nv('acai-discount');
+  const platformFee  = nv('acai-platform');
+  const materialCost = nv('acai-material');
+
+  const totalAmount = productSales + toppingSales + deliveryFee - discount - platformFee;
+  const grossProfit = totalAmount - materialCost;
+  const grossProfitRate = totalAmount > 0
+    ? Math.round((grossProfit / totalAmount) * 1000) / 10
+    : null;
+
+  const receivedAmount = nv('acai-cash') + nv('acai-card') + nv('acai-qr')
+                       + nv('acai-rocket') + nv('acai-uber') + nv('acai-other-pay');
+  const difference     = totalAmount - receivedAmount;
+
+  document.getElementById('calc-product').textContent  = fmt(productSales);
+  document.getElementById('calc-total').textContent    = fmt(totalAmount);
+  document.getElementById('calc-profit').textContent   = fmt(grossProfit);
+  document.getElementById('calc-rate').textContent     = grossProfitRate !== null ? grossProfitRate + '%' : '—';
+  document.getElementById('calc-received').textContent = fmt(receivedAmount);
+  document.getElementById('calc-diff').textContent     = fmt(difference);
+
+  // 利益警告
+  document.getElementById('profit-warn-low').hidden   = !(grossProfitRate !== null && grossProfitRate >= 0 && grossProfitRate < 20);
+  document.getElementById('profit-warn-minus').hidden = !(grossProfitRate !== null && grossProfitRate < 0);
+
+  // 利益率の色
+  const rateEl = document.getElementById('calc-rate');
+  if (grossProfitRate === null)       rateEl.style.color = '';
+  else if (grossProfitRate < 0)       rateEl.style.color = '#c0392b';
+  else if (grossProfitRate < 20)      rateEl.style.color = '#d35400';
+  else                                rateEl.style.color = '#27ae60';
+
+  // 差額ステータス
+  const statusEl = document.getElementById('calc-diff-status');
+  statusEl.textContent = difference === 0 ? 'OK' : '要確認';
+  statusEl.className   = difference === 0 ? 'diff-ok' : 'diff-ng';
+}
+
+// 計算トリガーを全入力フィールドに設定
+['acai-qty','acai-unit-price','acai-topping','acai-delivery','acai-discount',
+ 'acai-platform','acai-material',
+ 'acai-cash','acai-card','acai-qr','acai-rocket','acai-uber','acai-other-pay',
+].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', recalcAcai);
+});
+
+// フォーム送信
+document.getElementById('acai-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f   = e.target;
+  const qty = Number(f.quantity.value) || 0;
+  const up  = Number(f.unitPrice.value) || 0;
+
+  const saved = saveAcaiSale({
+    date:            f.date.value,
+    staffName:       f.staffName.value.trim(),
+    channel:         f.channel.value,
+    orderNumber:     f.orderNumber.value.trim(),
+    customerType:    f.customerType.value,
+    customerName:    f.customerName.value.trim(),
+    productName:     f.productName.value.trim(),
+    size:            f.size.value,
+    quantity:        qty,
+    unitPrice:       up,
+    productSales:    qty * up,
+    toppingSales:    Number(f.toppingSales.value)    || 0,
+    deliveryFee:     Number(f.deliveryFee.value)     || 0,
+    discount:        Number(f.discount.value)        || 0,
+    platformFee:     Number(f.platformFee.value)     || 0,
+    materialCost:    Number(f.materialCost.value)    || 0,
+    cashAmount:      Number(f.cashAmount.value)      || 0,
+    cardAmount:      Number(f.cardAmount.value)      || 0,
+    qrAmount:        Number(f.qrAmount.value)        || 0,
+    rocketNowAmount: Number(f.rocketNowAmount.value) || 0,
+    uberEatsAmount:  Number(f.uberEatsAmount.value)  || 0,
+    otherAmount:     Number(f.otherAmount.value)     || 0,
+    memo:            f.memo.value.trim(),
+  });
+
+  const cfg = CH_CONFIG[saved.channel] || {};
+  document.getElementById('acai-saved-detail').textContent =
+    `${cfg.emoji} ${saved.channel}  ／  ${saved.productName}（${saved.size}）× ${saved.quantity}  ／  ${fmt(saved.totalAmount)}`;
+
+  renderTodayStats();
+  showAcaiStep('saved');
+  showToast('アサイー売上を保存しました');
+});
+
+// 保存後ボタン群
+function resetAcaiForm() {
+  const form = document.getElementById('acai-form');
+  form.reset();
+  document.getElementById('acai-date').value = today();
+  // toggle ボタンを初期状態（最初の選択肢）に戻す
+  form.querySelectorAll('.toggle-group').forEach(group => {
+    const input  = form.querySelector(`[name="${group.dataset.target}"]`);
+    const first  = group.querySelector('.toggle-btn');
+    group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    if (first) { first.classList.add('active'); if (input) input.value = first.dataset.val; }
+  });
+  recalcAcai();
+}
+
+document.getElementById('acai-continue-btn').addEventListener('click', () => {
+  resetAcaiForm();
+  showAcaiStep('channel');
+});
+
+document.getElementById('acai-today-btn').addEventListener('click', () => {
+  showTodaySection('landing');
+  renderTodayStats();
+});
+
+document.getElementById('acai-dashboard-btn').addEventListener('click', () => {
+  document.querySelector('nav button[data-tab="summary"]').click();
+});
+
 // ── Entry Form ────────────────────────────────────────────────────────────────
 document.getElementById('entry-date').value = today();
 

@@ -70,16 +70,18 @@ function computeShishaSale(data) {
 }
 
 function computeAcaiSale(data) {
+  // 合計売上 = 商品売上 + トッピング + 配送料 - 値引き - 販売手数料（仕様書準拠）
   const totalAmount    = n(data.productSales) + n(data.toppingSales)
-                       + n(data.deliveryFee) - n(data.discount);
-  const grossProfit    = totalAmount - n(data.platformFee) - n(data.materialCost);
+                       + n(data.deliveryFee) - n(data.discount) - n(data.platformFee);
+  const grossProfit    = totalAmount - n(data.materialCost);
   const grossProfitRate = totalAmount > 0
     ? Math.round((grossProfit / totalAmount) * 1000) / 10
     : 0;
   const receivedAmount = n(data.cashAmount)    + n(data.cardAmount)
                        + n(data.qrAmount)      + n(data.rocketNowAmount)
                        + n(data.uberEatsAmount) + n(data.otherAmount);
-  const difference     = receivedAmount - totalAmount;
+  // 差額 = 合計売上 - 受け取った合計（仕様書準拠）
+  const difference     = totalAmount - receivedAmount;
 
   return {
     ...data,

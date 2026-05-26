@@ -85,13 +85,193 @@
       </div>
     </div>
 
-    <!-- アサイー入力サブ画面（Step 4 で実装） -->
+    <!-- アサイー入力サブ画面 -->
     <div id="today-acai" class="today-sub" hidden>
       <button class="back-link" id="back-from-acai">← 今日の入力に戻る</button>
-      <div class="card stub-card">
-        <div class="stub-icon">🍇</div>
-        <div class="stub-title">アサイーボウル売上入力</div>
-        <p class="stub-msg">入力フォームを準備中です。</p>
+
+      <!-- Step 1: チャネル選択 -->
+      <div id="acai-ch-step">
+        <div class="card">
+          <h2>🍇 アサイーボウル売上入力</h2>
+          <p class="ch-step-hint">まず販売チャネルを選んでください</p>
+          <div class="ch-grid">
+            <button type="button" class="ch-btn ch-instore" data-ch="店頭">
+              <span class="ch-emoji">🏪</span><span class="ch-name">店頭</span>
+            </button>
+            <button type="button" class="ch-btn ch-rocket" data-ch="Rocket Now">
+              <span class="ch-emoji">🚀</span><span class="ch-name">Rocket Now</span>
+            </button>
+            <button type="button" class="ch-btn ch-uber" data-ch="Uber Eats">
+              <span class="ch-emoji">🛵</span><span class="ch-name">Uber Eats</span>
+            </button>
+            <button type="button" class="ch-btn ch-other" data-ch="その他">
+              <span class="ch-emoji">📦</span><span class="ch-name">その他</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: 入力フォーム -->
+      <div id="acai-form-wrap" hidden>
+        <div class="acai-ch-badge" id="acai-ch-badge">
+          <span id="acai-badge-icon"></span>
+          <span id="acai-badge-label"></span>
+          <button type="button" class="btn-ch-change" id="btn-acai-ch-change">チャネルを変更</button>
+        </div>
+
+        <form id="acai-form" autocomplete="off">
+          <input type="hidden" name="channel" id="acai-channel-val">
+
+          <!-- 基本情報 -->
+          <div class="card">
+            <h2>基本情報</h2>
+            <div class="form-grid">
+              <div><label>日付</label>
+                <input type="date" name="date" id="acai-date" required></div>
+              <div><label>担当者</label>
+                <input type="text" name="staffName" placeholder="スタッフ名"></div>
+              <div><label>注文番号</label>
+                <input type="text" name="orderNumber" placeholder="UE-00123 など"></div>
+              <div><label>お客様名</label>
+                <input type="text" name="customerName" placeholder="任意"></div>
+            </div>
+          </div>
+
+          <!-- 顧客区分 -->
+          <div class="card">
+            <h2>顧客区分</h2>
+            <div class="toggle-group" data-target="customerType">
+              <button type="button" class="toggle-btn active" data-val="不明">不明</button>
+              <button type="button" class="toggle-btn" data-val="新規">新規</button>
+              <button type="button" class="toggle-btn" data-val="リピーター">リピーター</button>
+            </div>
+            <input type="hidden" name="customerType" value="不明">
+          </div>
+
+          <!-- 商品情報 -->
+          <div class="card">
+            <h2>商品情報</h2>
+
+            <div style="margin-bottom:12px">
+              <label>商品名</label>
+              <input type="text" name="productName" id="acai-product-name"
+                     list="acai-product-list" placeholder="アサイーボウル" required>
+              <datalist id="acai-product-list">
+                <option value="アサイーボウル">
+                <option value="アサイースムージー">
+                <option value="アサイーパフェ">
+              </datalist>
+            </div>
+
+            <label class="field-label">サイズ</label>
+            <div class="toggle-group" style="margin-bottom:16px" data-target="size">
+              <button type="button" class="toggle-btn size-btn active" data-val="M">M</button>
+              <button type="button" class="toggle-btn size-btn" data-val="S">S</button>
+              <button type="button" class="toggle-btn size-btn" data-val="L">L</button>
+            </div>
+            <input type="hidden" name="size" value="M">
+
+            <div class="form-grid">
+              <div>
+                <label>数量</label>
+                <div class="qty-control">
+                  <button type="button" class="qty-btn" data-target="acai-qty" data-action="dec">−</button>
+                  <input type="number" name="quantity" id="acai-qty" value="1" min="1" required>
+                  <button type="button" class="qty-btn" data-target="acai-qty" data-action="inc">＋</button>
+                </div>
+              </div>
+              <div><label>単価（円）</label>
+                <input type="number" name="unitPrice" id="acai-unit-price" placeholder="1000" min="0" required></div>
+              <div><label>トッピング売上（円）</label>
+                <input type="number" name="toppingSales" id="acai-topping" value="0" min="0"></div>
+              <div><label>配送料（円）</label>
+                <input type="number" name="deliveryFee" id="acai-delivery" value="0" min="0"></div>
+              <div><label>値引き（円）</label>
+                <input type="number" name="discount" id="acai-discount" value="0" min="0"></div>
+              <div>
+                <label>販売手数料（円）<span class="field-hint">Uber / Rocket</span></label>
+                <input type="number" name="platformFee" id="acai-platform" value="0" min="0">
+              </div>
+              <div><label>材料費・仕入れ（円）</label>
+                <input type="number" name="materialCost" id="acai-material" value="0" min="0"></div>
+            </div>
+          </div>
+
+          <!-- 売上サマリー（自動計算） -->
+          <div class="card calc-card">
+            <h2>売上サマリー（自動計算）</h2>
+            <div class="calc-row">
+              <span class="cr-label">商品売上</span>
+              <span class="cr-val" id="calc-product">¥0</span>
+            </div>
+            <div class="calc-row cr-total">
+              <span class="cr-label">合計売上</span>
+              <span class="cr-val cr-big" id="calc-total">¥0</span>
+            </div>
+            <div class="calc-row">
+              <span class="cr-label">利益（材料費控除後）</span>
+              <span class="cr-val" id="calc-profit">¥0</span>
+            </div>
+            <div class="calc-row">
+              <span class="cr-label">利益率</span>
+              <span class="cr-val" id="calc-rate">—</span>
+            </div>
+            <div id="profit-warn-low"   class="profit-badge warn"   hidden>⚠️ 利益が低い可能性あり</div>
+            <div id="profit-warn-minus" class="profit-badge danger" hidden>🚨 利益がマイナスです</div>
+          </div>
+
+          <!-- 支払い情報 -->
+          <div class="card">
+            <h2>支払い情報</h2>
+            <div class="form-grid">
+              <div><label>現金（円）</label>
+                <input type="number" name="cashAmount"      id="acai-cash"      value="0" min="0"></div>
+              <div><label>カード（円）</label>
+                <input type="number" name="cardAmount"      id="acai-card"      value="0" min="0"></div>
+              <div><label>QR決済（円）</label>
+                <input type="number" name="qrAmount"        id="acai-qr"        value="0" min="0"></div>
+              <div><label>Rocket Now 入金（円）</label>
+                <input type="number" name="rocketNowAmount" id="acai-rocket"    value="0" min="0"></div>
+              <div><label>Uber Eats 入金（円）</label>
+                <input type="number" name="uberEatsAmount"  id="acai-uber"      value="0" min="0"></div>
+              <div><label>その他入金（円）</label>
+                <input type="number" name="otherAmount"     id="acai-other-pay" value="0" min="0"></div>
+            </div>
+            <div class="calc-recv">
+              <div class="calc-row">
+                <span class="cr-label">受け取った合計</span>
+                <span class="cr-val cr-big" id="calc-received">¥0</span>
+              </div>
+              <div class="calc-row">
+                <span class="cr-label">差額（合計売上 − 受け取り）</span>
+                <span class="cr-val" id="calc-diff">¥0</span>
+                <span id="calc-diff-status" class="diff-ok">OK</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- メモ -->
+          <div class="card">
+            <h2>備考</h2>
+            <textarea name="memo" rows="3" placeholder="メモ（任意）"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-save-big">保存する 💾</button>
+        </form>
+      </div>
+
+      <!-- Step 3: 保存完了 -->
+      <div id="acai-saved-state" hidden>
+        <div class="card saved-card">
+          <div class="saved-icon-big">✅</div>
+          <div class="saved-msg-big">保存しました！</div>
+          <div class="saved-detail" id="acai-saved-detail"></div>
+        </div>
+        <div class="saved-actions">
+          <button class="btn btn-primary"   id="acai-continue-btn">続けて入力</button>
+          <button class="btn btn-secondary" id="acai-today-btn">今日の入力に戻る</button>
+          <button class="btn btn-secondary" id="acai-dashboard-btn">ダッシュボードを見る</button>
+        </div>
       </div>
     </div>
 
