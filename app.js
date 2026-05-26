@@ -39,10 +39,45 @@ document.querySelectorAll('nav button[data-tab]').forEach(btn => {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'today')   showTodaySection('landing');
     if (btn.dataset.tab === 'summary') renderSummary();
     if (btn.dataset.tab === 'history') renderHistory();
   });
 });
+
+// ── Today page ────────────────────────────────────────────────────────────────
+function showTodaySection(name) {
+  const ids = { landing: 'today-landing', shisha: 'today-shisha', acai: 'today-acai', expense: 'today-expense' };
+  Object.entries(ids).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = (key !== name);
+  });
+}
+
+function formatDateJa(dateStr) {
+  const d    = new Date(dateStr + 'T00:00:00');
+  const days = ['日', '月', '火', '水', '木', '金', '土'];
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${days[d.getDay()]}）`;
+}
+
+function renderTodayStats() {
+  const t            = today();
+  const shishaTotal  = getShishaSales().filter(r => r.date === t).reduce((s, r) => s + (r.totalAmount || 0), 0);
+  const acaiTotal    = getAcaiSales().filter(r => r.date === t).reduce((s, r) => s + (r.totalAmount || 0), 0);
+  const expenseTotal = getExpenses().filter(r => r.date === t).reduce((s, r) => s + (r.amount || 0), 0);
+  const salesTotal   = shishaTotal + acaiTotal;
+  document.getElementById('tkpi-sales').textContent   = fmt(salesTotal);
+  document.getElementById('tkpi-expense').textContent = fmt(expenseTotal);
+  document.getElementById('tkpi-profit').textContent  = fmt(salesTotal - expenseTotal);
+}
+
+document.getElementById('today-date-display').textContent = formatDateJa(today());
+document.getElementById('btn-go-shisha').addEventListener('click',      () => showTodaySection('shisha'));
+document.getElementById('btn-go-acai').addEventListener('click',        () => showTodaySection('acai'));
+document.getElementById('btn-go-expense').addEventListener('click',     () => showTodaySection('expense'));
+document.getElementById('back-from-shisha').addEventListener('click',   () => showTodaySection('landing'));
+document.getElementById('back-from-acai').addEventListener('click',     () => showTodaySection('landing'));
+document.getElementById('back-from-expense').addEventListener('click',  () => showTodaySection('landing'));
 
 // ── Entry Form ────────────────────────────────────────────────────────────────
 document.getElementById('entry-date').value = today();
@@ -221,3 +256,4 @@ document.getElementById('btn-clear').addEventListener('click', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderSummary();
+renderTodayStats();

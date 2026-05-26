@@ -15,15 +15,100 @@
 </header>
 
 <nav>
-  <button class="active" data-tab="entry">売上入力</button>
+  <button class="active" data-tab="today">今日の入力</button>
   <button data-tab="summary">集計・グラフ</button>
   <button data-tab="history">履歴</button>
 </nav>
 
 <main>
 
-  <!-- ── 売上入力 ── -->
-  <section id="entry" class="section active">
+  <!-- ── 今日の入力（ランディング） ── -->
+  <section id="today" class="section active">
+
+    <!-- Landing: 3枚カード -->
+    <div id="today-landing">
+      <div class="today-header">
+        <div class="today-date-label" id="today-date-display"></div>
+        <div class="today-kpi-bar">
+          <div class="today-kpi">
+            <span class="tkpi-label">今日の売上</span>
+            <span class="tkpi-value" id="tkpi-sales">¥0</span>
+          </div>
+          <div class="today-kpi">
+            <span class="tkpi-label">経費</span>
+            <span class="tkpi-value" id="tkpi-expense">¥0</span>
+          </div>
+          <div class="today-kpi tkpi-profit-box">
+            <span class="tkpi-label">粗利</span>
+            <span class="tkpi-value" id="tkpi-profit">¥0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="landing-grid">
+        <button class="landing-card card-shisha" id="btn-go-shisha">
+          <div class="lc-icon">💨</div>
+          <div class="lc-body">
+            <div class="lc-title">シーシャ売上を入力する</div>
+            <div class="lc-desc">テーブルごとの会計を入力します。</div>
+          </div>
+          <span class="lc-arrow">›</span>
+        </button>
+
+        <button class="landing-card card-acai" id="btn-go-acai">
+          <div class="lc-icon">🍇</div>
+          <div class="lc-body">
+            <div class="lc-title">アサイーボウル売上を入力する</div>
+            <div class="lc-desc">店頭、Rocket Now、Uber Eats の売上を入力します。</div>
+          </div>
+          <span class="lc-arrow">›</span>
+        </button>
+
+        <button class="landing-card card-expense" id="btn-go-expense">
+          <div class="lc-icon">💸</div>
+          <div class="lc-body">
+            <div class="lc-title">経費を入力する</div>
+            <div class="lc-desc">シーシャ・アサイー・共通経費を入力します。</div>
+          </div>
+          <span class="lc-arrow">›</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- シーシャ入力サブ画面（Step 3 で実装） -->
+    <div id="today-shisha" class="today-sub" hidden>
+      <button class="back-link" id="back-from-shisha">← 今日の入力に戻る</button>
+      <div class="card stub-card">
+        <div class="stub-icon">💨</div>
+        <div class="stub-title">シーシャ売上入力</div>
+        <p class="stub-msg">入力フォームを準備中です。</p>
+      </div>
+    </div>
+
+    <!-- アサイー入力サブ画面（Step 4 で実装） -->
+    <div id="today-acai" class="today-sub" hidden>
+      <button class="back-link" id="back-from-acai">← 今日の入力に戻る</button>
+      <div class="card stub-card">
+        <div class="stub-icon">🍇</div>
+        <div class="stub-title">アサイーボウル売上入力</div>
+        <p class="stub-msg">入力フォームを準備中です。</p>
+      </div>
+    </div>
+
+    <!-- 経費入力サブ画面（Step 5 で実装） -->
+    <div id="today-expense" class="today-sub" hidden>
+      <button class="back-link" id="back-from-expense">← 今日の入力に戻る</button>
+      <div class="card stub-card">
+        <div class="stub-icon">💸</div>
+        <div class="stub-title">経費入力</div>
+        <p class="stub-msg">入力フォームを準備中です。</p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ── 旧売上入力（JS参照保持のため残す） ── -->
+  <section id="entry" class="section">
     <div class="card">
       <h2>売上を記録する</h2>
       <form id="entry-form" autocomplete="off">
