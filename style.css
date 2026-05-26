@@ -636,3 +636,116 @@ textarea:focus { outline: none; border-color: var(--accent); }
   color: #c0392b;
   white-space: nowrap;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   経費フォーム
+══════════════════════════════════════════════════════════════════════════════ */
+
+/* 部門選択ボタン（カード型・縦積み） */
+.dept-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dept-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 18px 20px;
+  border: none;
+  border-left: 5px solid;
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+  background: none;
+}
+
+.dept-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.11); }
+.dept-btn:active { transform: translateY(1px);  box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+/* 部門カラー */
+.dept-shisha { background: #eaf4fb; border-color: #2980b9; }
+.dept-acai   { background: #f5eef8; border-color: #8e44ad; }
+.dept-common { background: #fef9e7; border-color: #d4ac0d; }
+
+.dept-emoji { font-size: 1.8rem; flex-shrink: 0; }
+
+.dept-info { flex: 1; text-align: left; }
+
+.dept-name {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.dept-desc {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.dept-arrow {
+  font-size: 1.8rem;
+  color: var(--muted);
+  font-weight: 200;
+  line-height: 1;
+}
+
+/* 部門バッジ（フォーム上部） */
+.exp-dept-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.exp-dept-badge.dept-shisha { background: #eaf4fb; color: #1a5276; }
+.exp-dept-badge.dept-acai   { background: #f5eef8; color: #6c3483; }
+.exp-dept-badge.dept-common { background: #fef9e7; color: #7d6608; }
+
+/* 金額入力（大きく・目立つ） */
+.exp-amount-wrap { margin-bottom: 20px; }
+
+.exp-amount-input {
+  font-size: 1.8rem !important;
+  font-weight: 700 !important;
+  text-align: right;
+  padding: 14px 20px !important;
+  border: 2px solid var(--border) !important;
+  border-radius: 12px !important;
+  letter-spacing: 0.03em;
+  color: var(--primary) !important;
+}
+
+.exp-amount-input:focus { border-color: var(--accent) !important; }
+
+/* 領収書「なし」ボタンがアクティブ時 */
+.toggle-btn.toggle-warn.active {
+  background: #e67e22;
+  border-color: #e67e22;
+  color: #fff;
+}
+
+/* 領収書なし警告 */
+.receipt-warn {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #fef5e7;
+  border: 1.5px solid #f39c12;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #d35400;
+  font-weight: 500;
+  line-height: 1.5;
+}

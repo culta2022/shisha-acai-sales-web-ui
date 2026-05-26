@@ -289,6 +289,56 @@ test('ShishaSale と AcaiSale のストレージは独立している', () => {
   eq(getAcaiSales().length,   0);
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+console.log('\n── 部門別経費テスト保存 ─────────────────────────────────────────────');
+
+test('シーシャの経費: 仕入れ ¥5000 現金・領収書あり', () => {
+  const r = saveExpense({
+    date: '2026-05-26', payee: '業務スーパー',
+    department: 'シーシャの経費', category: '仕入れ',
+    amount: 5000, paymentMethod: '現金', hasReceipt: 'あり',
+    memo: 'シーシャ炭 × 3袋',
+  });
+  eq(r.department,    'シーシャの経費');
+  eq(r.category,      '仕入れ');
+  eq(r.amount,        5000);
+  eq(r.paymentMethod, '現金');
+  eq(r.hasReceipt,    'あり');
+  assert(r.id && r.createdAt);
+  deleteExpense(r.id);
+});
+
+test('アサイーの経費: 材料費 ¥3000 カード・領収書あり', () => {
+  const r = saveExpense({
+    date: '2026-05-26', payee: 'コストコ',
+    department: 'アサイーの経費', category: '材料費',
+    amount: 3000, paymentMethod: 'カード', hasReceipt: 'あり',
+    memo: 'アサイーパック × 6個',
+  });
+  eq(r.department,    'アサイーの経費');
+  eq(r.category,      '材料費');
+  eq(r.amount,        3000);
+  eq(r.paymentMethod, 'カード');
+  assert(r.id);
+  deleteExpense(r.id);
+});
+
+test('共通の経費: 家賃 ¥80000 口座引落・領収書なし', () => {
+  const r = saveExpense({
+    date: '2026-05-26', payee: '〇〇不動産',
+    department: '共通の経費', category: '家賃',
+    amount: 80000, paymentMethod: '口座引落', hasReceipt: 'なし',
+    memo: '5月分家賃',
+  });
+  eq(r.department,    '共通の経費');
+  eq(r.category,      '家賃');
+  eq(r.amount,        80000);
+  eq(r.paymentMethod, '口座引落');
+  eq(r.hasReceipt,    'なし');
+  assert(r.id);
+  deleteExpense(r.id);
+});
+
 // ── Result ────────────────────────────────────────────────────────────────────
 const total = passed + failed;
 console.log(`\n結果: ${passed}/${total} passed${failed > 0 ? `, ${failed} failed` : ' ✓'}\n`);

@@ -275,13 +275,142 @@
       </div>
     </div>
 
-    <!-- 経費入力サブ画面（Step 5 で実装） -->
+    <!-- 経費入力サブ画面 -->
     <div id="today-expense" class="today-sub" hidden>
       <button class="back-link" id="back-from-expense">← 今日の入力に戻る</button>
-      <div class="card stub-card">
-        <div class="stub-icon">💸</div>
-        <div class="stub-title">経費入力</div>
-        <p class="stub-msg">入力フォームを準備中です。</p>
+
+      <!-- Step 1: 部門選択 -->
+      <div id="exp-dept-step">
+        <div class="card">
+          <h2>💸 経費入力</h2>
+          <p class="ch-step-hint">まず部門を選んでください</p>
+          <div class="dept-grid">
+            <button type="button" class="dept-btn dept-shisha" data-dept="シーシャの経費">
+              <span class="dept-emoji">💨</span>
+              <span class="dept-info">
+                <span class="dept-name">シーシャの経費</span>
+                <span class="dept-desc">仕入れ・人件費・消耗品など</span>
+              </span>
+              <span class="dept-arrow">›</span>
+            </button>
+            <button type="button" class="dept-btn dept-acai" data-dept="アサイーの経費">
+              <span class="dept-emoji">🍇</span>
+              <span class="dept-info">
+                <span class="dept-name">アサイーの経費</span>
+                <span class="dept-desc">材料費・仕入れ・包材など</span>
+              </span>
+              <span class="dept-arrow">›</span>
+            </button>
+            <button type="button" class="dept-btn dept-common" data-dept="共通の経費">
+              <span class="dept-emoji">🏠</span>
+              <span class="dept-info">
+                <span class="dept-name">共通の経費</span>
+                <span class="dept-desc">家賃・水道光熱費・広告費など</span>
+              </span>
+              <span class="dept-arrow">›</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: 入力フォーム -->
+      <div id="exp-form-wrap" hidden>
+        <div class="exp-dept-badge" id="exp-dept-badge">
+          <span id="exp-badge-icon"></span>
+          <span id="exp-badge-label"></span>
+          <button type="button" class="btn-ch-change" id="btn-exp-dept-change">部門を変更</button>
+        </div>
+
+        <form id="exp-form" autocomplete="off">
+          <input type="hidden" name="department" id="exp-department-val">
+
+          <!-- 基本情報 -->
+          <div class="card">
+            <h2>基本情報</h2>
+            <div class="form-grid">
+              <div><label>日付</label>
+                <input type="date" name="date" id="exp-date" required></div>
+              <div><label>支払先</label>
+                <input type="text" name="payee" placeholder="業務スーパー など"></div>
+            </div>
+          </div>
+
+          <!-- 経費内容 -->
+          <div class="card">
+            <h2>経費内容</h2>
+
+            <div style="margin-bottom:16px">
+              <label>経費カテゴリ</label>
+              <select name="category" required>
+                <option value="">選んでください</option>
+                <option>仕入れ</option>
+                <option>材料費</option>
+                <option>人件費</option>
+                <option>家賃</option>
+                <option>水道光熱費</option>
+                <option>広告費</option>
+                <option>消耗品</option>
+                <option>交通費</option>
+                <option>通信費</option>
+                <option>システム利用料</option>
+                <option>その他</option>
+              </select>
+            </div>
+
+            <div class="exp-amount-wrap">
+              <label>金額（円）</label>
+              <input type="number" name="amount" id="exp-amount"
+                     placeholder="0" min="0" required class="exp-amount-input">
+            </div>
+
+            <div style="margin-bottom:16px">
+              <label class="field-label">支払方法</label>
+              <div class="toggle-group" data-target="paymentMethod">
+                <button type="button" class="toggle-btn active" data-val="現金">現金</button>
+                <button type="button" class="toggle-btn" data-val="カード">カード</button>
+                <button type="button" class="toggle-btn" data-val="振込">振込</button>
+                <button type="button" class="toggle-btn" data-val="口座引落">口座引落</button>
+                <button type="button" class="toggle-btn" data-val="その他">その他</button>
+              </div>
+              <input type="hidden" name="paymentMethod" value="現金">
+            </div>
+
+            <div>
+              <label class="field-label">領収書</label>
+              <div class="toggle-group" data-target="hasReceipt">
+                <button type="button" class="toggle-btn active" data-val="あり">あり ✓</button>
+                <button type="button" class="toggle-btn toggle-warn" data-val="なし">なし</button>
+                <button type="button" class="toggle-btn" data-val="後で確認">後で確認</button>
+              </div>
+              <input type="hidden" name="hasReceipt" value="あり">
+              <div id="receipt-warn" class="receipt-warn" hidden>
+                ⚠️ 領収書なしです。後で確認が必要な場合はメモに記入してください。
+              </div>
+            </div>
+          </div>
+
+          <!-- メモ -->
+          <div class="card">
+            <h2>備考</h2>
+            <textarea name="memo" rows="3" placeholder="メモ（任意）"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-save-big">保存する 💾</button>
+        </form>
+      </div>
+
+      <!-- Step 3: 保存完了 -->
+      <div id="exp-saved-state" hidden>
+        <div class="card saved-card">
+          <div class="saved-icon-big">✅</div>
+          <div class="saved-msg-big">保存しました！</div>
+          <div class="saved-detail" id="exp-saved-detail"></div>
+        </div>
+        <div class="saved-actions">
+          <button class="btn btn-primary"   id="exp-continue-btn">続けて入力</button>
+          <button class="btn btn-secondary" id="exp-today-btn">今日の入力に戻る</button>
+          <button class="btn btn-secondary" id="exp-dashboard-btn">ダッシュボードを見る</button>
+        </div>
       </div>
     </div>
 

@@ -268,6 +268,101 @@ document.getElementById('acai-dashboard-btn').addEventListener('click', () => {
   document.querySelector('nav button[data-tab="summary"]').click();
 });
 
+// ── Expense Form ──────────────────────────────────────────────────────────────
+const DEPT_CONFIG = {
+  'シーシャの経費': { emoji: '💨', cls: 'dept-shisha' },
+  'アサイーの経費': { emoji: '🍇', cls: 'dept-acai'   },
+  '共通の経費':     { emoji: '🏠', cls: 'dept-common'  },
+};
+
+function showExpStep(step) {
+  document.getElementById('exp-dept-step').hidden   = (step !== 'dept');
+  document.getElementById('exp-form-wrap').hidden   = (step !== 'form');
+  document.getElementById('exp-saved-state').hidden = (step !== 'saved');
+}
+
+function selectExpDept(dept) {
+  const cfg = DEPT_CONFIG[dept] || { emoji: '🏠', cls: 'dept-common' };
+  const badge = document.getElementById('exp-dept-badge');
+  badge.className = 'exp-dept-badge ' + cfg.cls;
+  document.getElementById('exp-badge-icon').textContent  = cfg.emoji;
+  document.getElementById('exp-badge-label').textContent = dept;
+  document.getElementById('exp-department-val').value    = dept;
+  showExpStep('form');
+}
+
+// 部門ボタン
+document.querySelectorAll('.dept-btn[data-dept]').forEach(btn => {
+  btn.addEventListener('click', () => selectExpDept(btn.dataset.dept));
+});
+
+document.getElementById('btn-exp-dept-change').addEventListener('click', () => showExpStep('dept'));
+
+// 今日の日付をセット
+document.getElementById('exp-date').value = today();
+
+// 領収書「なし」警告
+document.getElementById('exp-form').querySelectorAll(
+  '.toggle-group[data-target="hasReceipt"] .toggle-btn'
+).forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('receipt-warn').hidden = (btn.dataset.val !== 'なし');
+  });
+});
+
+// フォーム送信
+document.getElementById('exp-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target;
+
+  const saved = saveExpense({
+    date:          f.date.value,
+    payee:         f.payee.value.trim(),
+    department:    f.department.value,
+    category:      f.category.value,
+    amount:        Number(f.amount.value) || 0,
+    paymentMethod: f.paymentMethod.value,
+    hasReceipt:    f.hasReceipt.value,
+    memo:          f.memo.value.trim(),
+  });
+
+  const cfg = DEPT_CONFIG[saved.department] || {};
+  document.getElementById('exp-saved-detail').textContent =
+    `${cfg.emoji} ${saved.department}  ／  ${saved.category}  ／  ${fmt(saved.amount)}`;
+
+  renderTodayStats();
+  showExpStep('saved');
+  showToast('経費を保存しました');
+});
+
+// 保存後ボタン群
+function resetExpForm() {
+  const form = document.getElementById('exp-form');
+  form.reset();
+  document.getElementById('exp-date').value        = today();
+  document.getElementById('receipt-warn').hidden   = true;
+  form.querySelectorAll('.toggle-group').forEach(group => {
+    const input = form.querySelector(`[name="${group.dataset.target}"]`);
+    const first = group.querySelector('.toggle-btn');
+    group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    if (first) { first.classList.add('active'); if (input) input.value = first.dataset.val; }
+  });
+}
+
+document.getElementById('exp-continue-btn').addEventListener('click', () => {
+  resetExpForm();
+  showExpStep('dept');
+});
+
+document.getElementById('exp-today-btn').addEventListener('click', () => {
+  showTodaySection('landing');
+  renderTodayStats();
+});
+
+document.getElementById('exp-dashboard-btn').addEventListener('click', () => {
+  document.querySelector('nav button[data-tab="summary"]').click();
+});
+
 // ── Entry Form ────────────────────────────────────────────────────────────────
 document.getElementById('entry-date').value = today();
 
