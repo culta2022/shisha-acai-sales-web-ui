@@ -568,45 +568,80 @@
     </div>
   </section>
 
-  <!-- ── 履歴 ── -->
+  <!-- ── 履歴（日計・月計） ── -->
   <section id="history" class="section">
-    <div class="filter-row">
-      <div class="filter-item">
-        <label>日付で絞り込み</label>
-        <input type="date" id="hist-date">
-      </div>
-      <div class="filter-item">
-        <label>カテゴリ</label>
-        <select id="hist-cat">
-          <option value="">すべて</option>
-          <option value="shisha">💨 シーシャ</option>
-          <option value="acai">🍇 アサイー</option>
-          <option value="drink">🥤 ドリンク</option>
-        </select>
-      </div>
-      <button class="btn btn-secondary" id="btn-csv" style="margin-left:auto">CSV出力</button>
-      <button class="btn btn-danger" id="btn-clear">全削除</button>
+    <div class="hist-mode-bar">
+      <button class="hist-mode-btn active" data-hmode="daily">📅 日計</button>
+      <button class="hist-mode-btn" data-hmode="monthly">📆 月計</button>
     </div>
 
-    <div class="card" style="padding:0;overflow:hidden">
-      <table>
-        <thead>
-          <tr>
-            <th>日付</th>
-            <th>カテゴリ</th>
-            <th>品目</th>
-            <th style="text-align:right">数量</th>
-            <th style="text-align:right">単価</th>
-            <th style="text-align:right">合計</th>
-            <th>メモ</th>
-          </tr>
-        </thead>
-        <tbody id="history-tbody">
-          <tr><td colspan="7" class="empty">データがありません</td></tr>
-        </tbody>
-      </table>
+    <!-- 日計 -->
+    <div id="hist-daily-view">
+      <div class="hist-nav-row">
+        <button type="button" class="hist-nav-btn" id="hist-day-prev">‹</button>
+        <input type="date" id="hist-date">
+        <button type="button" class="hist-nav-btn" id="hist-day-next">›</button>
+      </div>
+      <div id="daily-kpi-grid"></div>
+      <div class="card">
+        <h2>💨 シーシャ売上</h2>
+        <div id="daily-shisha-list"></div>
+      </div>
+      <div class="card">
+        <h2>🍇 アサイー売上</h2>
+        <div id="daily-acai-list"></div>
+      </div>
+      <div class="card">
+        <h2>💸 経費</h2>
+        <div id="daily-expense-list"></div>
+      </div>
+    </div>
+
+    <!-- 月計 -->
+    <div id="hist-monthly-view" hidden>
+      <div class="hist-nav-row">
+        <button type="button" class="hist-nav-btn" id="hist-month-prev">‹</button>
+        <input type="month" id="hist-month">
+        <button type="button" class="hist-nav-btn" id="hist-month-next">›</button>
+      </div>
+      <div id="monthly-kpi-grid"></div>
+      <div class="dash-charts-2col">
+        <div class="card">
+          <h2>日別売上推移</h2>
+          <div class="chart-wrap"><canvas id="hist-chart-daily-bar"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>アサイー チャネル別</h2>
+          <div class="chart-wrap chart-wrap-sm"><canvas id="hist-chart-channel"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>経費内訳</h2>
+          <div class="chart-wrap chart-wrap-sm"><canvas id="hist-chart-expense"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>営業利益推移（日別）</h2>
+          <div class="chart-wrap"><canvas id="hist-chart-profit"></canvas></div>
+        </div>
+      </div>
     </div>
   </section>
+
+  <!-- 編集モーダル -->
+  <div id="edit-modal" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="edit-modal-title">編集</span>
+        <button type="button" class="modal-close-btn" id="edit-modal-close">✕</button>
+      </div>
+      <form id="edit-form" autocomplete="off">
+        <div class="modal-body" id="edit-form-body"></div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">保存する</button>
+          <button type="button" class="btn btn-secondary" id="edit-modal-cancel">キャンセル</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
 </main>
 
