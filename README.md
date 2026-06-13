@@ -7,28 +7,23 @@
 - 売上データの入力・記録
 - 日別・月別の売上集計
 - 商品カテゴリ別（シーシャ / アサイー / ドリンク）の分析
-- 売上グラフの可視化
+- 売上グラフの可視化（Chart.js）
 - データのエクスポート（CSV）
 
 ## 技術スタック
 
-- HTML / CSS / JavaScript（バニラ、依存なし）
-- LocalStorage によるデータ永続化
-- Chart.js（グラフ描画）
+HTML / CSS / JavaScript（バニラ）、LocalStorage、Chart.js
 
-## 起動方法
+## Vercelデプロイ手順
 
-```bash
-open index.html
-```
+1. [vercel.com](https://vercel.com) にログイン
+2. **Add New Project** → GitHubリポジトリ `shisha-acai-sales-web-ui` を選択
+3. Framework Preset: **Other**
+4. Build & Output Settings はそのまま（ビルド不要）
+5. **Deploy** をクリック
 
-または任意のローカルサーバーで `index.html` を開いてください。
+Supabase連携時に追加する環境変数：
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-## ディレクトリ構成
-
-```
-shisha-acai-sales-web-ui/
-├── index.html
-├── style.css
-└── app.js
-```
+現在はlocalStorageで動作するため、環境変数の設定は不要です。
