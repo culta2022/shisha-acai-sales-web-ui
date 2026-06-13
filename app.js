@@ -1418,6 +1418,76 @@ document.getElementById('hist-month-next').addEventListener('click', () => {
 document.getElementById('hist-date').value  = today();
 document.getElementById('hist-month').value = today().slice(0, 7);
 
+// ── CSV Export ────────────────────────────────────────────────────────────────
+function toCSV(headers, rows) {
+  const esc = (v) => {
+    const s = v == null ? '' : String(v);
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [headers.map(esc).join(',')];
+  rows.forEach(r => lines.push(r.map(esc).join(',')));
+  return '﻿' + lines.join('\r\n');
+}
+
+function downloadCSV(content, filename) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportShishaCSV() {
+  const headers = ['日付','男性客数','女性客数','合計客数','シーシャ本数',
+    'シーシャ売上','ドリンク売上','フード売上','チャージ売上','その他売上','割引',
+    '合計売上','現金','カード','QR','未収金','未収回収','受取合計','差異',
+    '客単価','シーシャ単価','備考','登録日時'];
+  const rows = getShishaSales().sort((a,b) => a.date.localeCompare(b.date)).map(r => [
+    r.date, r.maleCount||0, r.femaleCount||0, r.totalCount||0, r.shishaCount||0,
+    r.shishaSales||0, r.drinkSales||0, r.foodSales||0, r.chargeSales||0, r.otherSales||0, r.discount||0,
+    r.totalAmount||0, r.cashAmount||0, r.cardAmount||0, r.qrAmount||0,
+    r.unpaidAmount||0, r.unpaidCollectedAmount||0, r.receivedAmount||0, r.difference||0,
+    r.averageSpendPerCustomer||0, r.averageSpendPerShisha||0, r.note||'', r.createdAt||'',
+  ]);
+  downloadCSV(toCSV(headers, rows), `シーシャ売上_${today()}.csv`);
+}
+
+function exportAcaiCSV() {
+  const headers = ['日付','チャネル','商品売上','トッピング','配送料','割引','プラットフォーム手数料',
+    '合計売上','原材料費','粗利','粗利率(%)','現金','カード','QR','ロケットナウ','Uber Eats','その他',
+    '受取合計','差異','備考','登録日時'];
+  const rows = getAcaiSales().sort((a,b) => a.date.localeCompare(b.date)).map(r => [
+    r.date, r.channel||'', r.productSales||0, r.toppingSales||0, r.deliveryFee||0,
+    r.discount||0, r.platformFee||0, r.totalAmount||0, r.materialCost||0,
+    r.grossProfit||0, r.grossProfitRate||0,
+    r.cashAmount||0, r.cardAmount||0, r.qrAmount||0,
+    r.rocketNowAmount||0, r.uberEatsAmount||0, r.otherAmount||0,
+    r.receivedAmount||0, r.difference||0, r.note||'', r.createdAt||'',
+  ]);
+  downloadCSV(toCSV(headers, rows), `アサイー売上_${today()}.csv`);
+}
+
+function exportExpenseCSV() {
+  const headers = ['日付','部門','カテゴリ','備考','金額','登録日時'];
+  const rows = getExpenses().sort((a,b) => a.date.localeCompare(b.date)).map(r => [
+    r.date, r.dept||'', r.category||'', r.note||'', r.amount||0, r.createdAt||'',
+  ]);
+  downloadCSV(toCSV(headers, rows), `経費_${today()}.csv`);
+}
+
+function exportAllCSV() {
+  exportShishaCSV();
+  setTimeout(exportAcaiCSV,  300);
+  setTimeout(exportExpenseCSV, 600);
+  showToast('CSVを3ファイル出力しました');
+}
+
+document.getElementById('btn-export-shisha').addEventListener('click',  exportShishaCSV);
+document.getElementById('btn-export-acai').addEventListener('click',    exportAcaiCSV);
+document.getElementById('btn-export-expense').addEventListener('click', exportExpenseCSV);
+document.getElementById('btn-export-all').addEventListener('click',     exportAllCSV);
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderDashboard();
 renderTodayStats();
