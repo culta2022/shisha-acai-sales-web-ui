@@ -1,25 +1,112 @@
 'use strict';
 
-// ── New storage layer (used in upcoming UI steps) ─────────────────────────────
-import {
-  getShishaSales, saveShishaSale, updateShishaSale, deleteShishaSale,
-  getAcaiSales,   saveAcaiSale,   updateAcaiSale,   deleteAcaiSale,
-  getExpenses,    saveExpense,    updateExpense,     deleteExpense,
-} from './src/services/storage.js';
+// ── Storage (inlined from src/services/storage.js) ────────────────────────────
 
-// ── Legacy storage (current UI — will be replaced in step 2+) ─────────────────
-const STORE_KEY = 'shisha_acai_sales';
-
-function loadRecords() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
-  catch { return []; }
+function createDefaultBackend() {
+  if (typeof localStorage !== 'undefined') {
+    return {
+      get(key)       { try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; } },
+      set(key, rows) { localStorage.setItem(key, JSON.stringify(rows)); },
+    };
+  }
+  const mem = {};
+  return {
+    get(key)       { return mem[key] ? JSON.parse(mem[key]) : []; },
+    set(key, rows) { mem[key] = JSON.stringify(rows); },
+  };
 }
 
-function saveRecords(records) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(records));
+let _backend = createDefaultBackend();
+
+const KEYS = {
+  SHISHA:  'sas_v2_shisha_sales',
+  ACAI:    'sas_v2_acai_sales',
+  EXPENSE: 'sas_v2_expenses',
+};
+
+let _idSeq = 0;
+function generateId() {
+  return Date.now().toString(36) + (_idSeq++ % 1000).toString(36).padStart(2,'0') + Math.random().toString(36).slice(2, 5);
 }
 
-let records = loadRecords();
+function nowIso() { return new Date().toISOString(); }
+
+const n = (v) => Number(v) || 0;
+
+function computeShishaSale(data) {
+  const totalCount     = n(data.maleCount) + n(data.femaleCount);
+  const totalAmount    = n(data.shishaSales) + n(data.drinkSales) + n(data.foodSales)
+                       + n(data.chargeSales) + n(data.otherSales) - n(data.discount);
+  const receivedAmount = n(data.cashAmount) + n(data.cardAmount)
+                       + n(data.qrAmount)   + n(data.unpaidCollectedAmount);
+  const billableToday  = totalAmount - n(data.unpaidAmount);
+  const difference     = receivedAmount - billableToday;
+  const shishaCount    = n(data.shishaCount);
+  return {
+    ...data, totalCount, totalAmount, receivedAmount, difference,
+    averageSpendPerCustomer: totalCount  > 0 ? Math.round(totalAmount / totalCount)         : 0,
+    averageSpendPerShisha:   shishaCount > 0 ? Math.round(n(data.shishaSales) / shishaCount) : 0,
+  };
+}
+
+function computeAcaiSale(data) {
+  const totalAmount    = n(data.productSales) + n(data.toppingSales)
+                       + n(data.deliveryFee)  - n(data.discount) - n(data.platformFee);
+  const grossProfit    = totalAmount - n(data.materialCost);
+  const grossProfitRate = totalAmount > 0 ? Math.round((grossProfit / totalAmount) * 1000) / 10 : 0;
+  const receivedAmount = n(data.cashAmount) + n(data.cardAmount) + n(data.qrAmount)
+                       + n(data.rocketNowAmount) + n(data.uberEatsAmount) + n(data.otherAmount);
+  const difference     = totalAmount - receivedAmount;
+  return { ...data, totalAmount, grossProfit, grossProfitRate, receivedAmount, difference };
+}
+
+function computeExpense(data) { return { ...data, amount: n(data.amount) }; }
+
+function makeCrud(key, computeFn) {
+  const compute = computeFn || ((d) => d);
+  return {
+    getAll() { return _backend.get(key); },
+    save(data) {
+      const rows = _backend.get(key);
+      const ts   = nowIso();
+      const record = compute({ ...data, id: generateId(), createdAt: ts, updatedAt: ts });
+      rows.push(record);
+      _backend.set(key, rows);
+      return record;
+    },
+    update(id, data) {
+      const rows = _backend.get(key);
+      const idx  = rows.findIndex((r) => r.id === id);
+      if (idx === -1) throw new Error(`Record not found: ${id}`);
+      const updated = compute({ ...rows[idx], ...data, id, createdAt: rows[idx].createdAt, updatedAt: nowIso() });
+      rows[idx] = updated;
+      _backend.set(key, rows);
+      return updated;
+    },
+    delete(id) {
+      const rows     = _backend.get(key);
+      const filtered = rows.filter((r) => r.id !== id);
+      _backend.set(key, filtered);
+      return filtered.length < rows.length;
+    },
+  };
+}
+
+const shishaCrud  = makeCrud(KEYS.SHISHA,  computeShishaSale);
+const acaiCrud    = makeCrud(KEYS.ACAI,    computeAcaiSale);
+const expenseCrud = makeCrud(KEYS.EXPENSE, computeExpense);
+
+const getShishaSales   = ()      => shishaCrud.getAll();
+const saveShishaSale   = (data)  => shishaCrud.save(data);
+const deleteShishaSale = (id)    => shishaCrud.delete(id);
+
+const getAcaiSales     = ()      => acaiCrud.getAll();
+const saveAcaiSale     = (data)  => acaiCrud.save(data);
+const deleteAcaiSale   = (id)    => acaiCrud.delete(id);
+
+const getExpenses      = ()      => expenseCrud.getAll();
+const saveExpense      = (data)  => expenseCrud.save(data);
+const deleteExpense    = (id)    => expenseCrud.delete(id);
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 const fmt = (n) => '¥' + Number(n).toLocaleString();
@@ -47,7 +134,7 @@ document.querySelectorAll('nav button[data-tab]').forEach(btn => {
 
 // ── Today page ────────────────────────────────────────────────────────────────
 function showTodaySection(name) {
-  const ids = { landing: 'today-landing', shisha: 'today-shisha', acai: 'today-acai', expense: 'today-expense' };
+  const ids = { landing: 'today-landing', shisha: 'today-shisha', acai: 'today-acai', expense: 'today-expense', bulk: 'today-bulk' };
   Object.entries(ids).forEach(([key, id]) => {
     const el = document.getElementById(id);
     if (el) el.hidden = (key !== name);
@@ -78,41 +165,353 @@ document.getElementById('btn-go-expense').addEventListener('click',     () => sh
 document.getElementById('back-from-shisha').addEventListener('click',   () => showTodaySection('landing'));
 document.getElementById('back-from-acai').addEventListener('click',     () => showTodaySection('landing'));
 document.getElementById('back-from-expense').addEventListener('click',  () => showTodaySection('landing'));
+document.getElementById('back-from-bulk').addEventListener('click',     () => showTodaySection('landing'));
+document.getElementById('btn-go-bulk').addEventListener('click',        () => showTodaySection('bulk'));
 
-// ── Acai Form ────────────────────────────────────────────────────────────────
-const CH_CONFIG = {
-  '店頭':       { emoji: '🏪', cls: 'ch-instore' },
-  'Rocket Now': { emoji: '🚀', cls: 'ch-rocket'  },
-  'Uber Eats':  { emoji: '🛵', cls: 'ch-uber'    },
-  'その他':     { emoji: '📦', cls: 'ch-other'   },
-};
+// ── Bulk (日次一括入力・テーブル形式) ─────────────────────────────────────────
 
-function showAcaiStep(step) {
-  document.getElementById('acai-ch-step').hidden     = (step !== 'channel');
-  document.getElementById('acai-form-wrap').hidden   = (step !== 'form');
-  document.getElementById('acai-saved-state').hidden = (step !== 'saved');
+document.getElementById('bulk-date').value = today();
+
+function rowNum(cls) { return (tr) => Number(tr.querySelector(cls)?.value) || 0; }
+
+function recalcShishaRow(tr) {
+  const g = rowNum;
+  const total = g('.sr-shisha')(tr) + g('.sr-drink')(tr) + g('.sr-food')(tr) - g('.sr-disc')(tr);
+  tr.querySelector('.sr-total').textContent = fmt(total);
 }
 
-function selectAcaiChannel(ch) {
-  const cfg = CH_CONFIG[ch] || { emoji: '📦', cls: 'ch-other' };
-  const badge = document.getElementById('acai-ch-badge');
-  badge.className = 'acai-ch-badge ' + cfg.cls;
-  document.getElementById('acai-badge-icon').textContent  = cfg.emoji;
-  document.getElementById('acai-badge-label').textContent = ch;
-  document.getElementById('acai-channel-val').value       = ch;
-  showAcaiStep('form');
-  recalcAcai();
+function recalcShishaTotals() {
+  let sales = 0, guests = 0;
+  document.querySelectorAll('#shisha-table-body .shisha-row').forEach(tr => {
+    const g = rowNum;
+    sales  += g('.sr-shisha')(tr) + g('.sr-drink')(tr) + g('.sr-food')(tr) - g('.sr-disc')(tr);
+    guests += g('.sr-male')(tr) + g('.sr-female')(tr);
+  });
+  document.getElementById('shisha-table-total').textContent  = fmt(sales);
+  document.getElementById('shisha-table-guests').textContent = guests + ' 人';
 }
 
-// チャネルボタン
-document.querySelectorAll('.ch-btn[data-ch]').forEach(btn => {
-  btn.addEventListener('click', () => selectAcaiChannel(btn.dataset.ch));
+function addShishaRow() {
+  const tbody = document.getElementById('shisha-table-body');
+  const num   = tbody.rows.length + 1;
+  const tr    = document.createElement('tr');
+  tr.className = 'shisha-row';
+  tr.innerHTML = `
+    <td><input type="text"   class="sr-table"  placeholder="${num}" style="width:42px"></td>
+    <td><input type="time"   class="sr-visit"  style="width:82px"></td>
+    <td><input type="time"   class="sr-leave"  style="width:82px"></td>
+    <td><input type="number" class="sr-male"   value="0" min="0" style="width:44px"></td>
+    <td><input type="number" class="sr-female" value="0" min="0" style="width:44px"></td>
+    <td><input type="number" class="sr-count"  value="1" min="0" style="width:44px"></td>
+    <td><input type="number" class="sr-shisha" value="0" min="0"></td>
+    <td><input type="number" class="sr-drink"  value="0" min="0"></td>
+    <td><input type="number" class="sr-food"   value="0" min="0"></td>
+    <td><input type="number" class="sr-disc"   value="0" min="0"></td>
+    <td class="sr-total col-total">¥0</td>
+    <td><input type="number" class="sr-cash"   value="0" min="0"></td>
+    <td><input type="number" class="sr-card"   value="0" min="0"></td>
+    <td><input type="number" class="sr-qr"     value="0" min="0"></td>
+    <td><input type="number" class="sr-unpaid" value="0" min="0"></td>
+    <td><button type="button" class="bexp-remove">×</button></td>
+  `;
+  tr.querySelectorAll('input[type="number"]').forEach(inp => inp.addEventListener('input', () => {
+    recalcShishaRow(tr); recalcShishaTotals();
+  }));
+  tr.querySelector('.bexp-remove').addEventListener('click', () => { tr.remove(); recalcShishaTotals(); });
+  tbody.appendChild(tr);
+}
+
+document.getElementById('shisha-add-row').addEventListener('click', addShishaRow);
+
+function recalcAcaiRows() {
+  let total = 0;
+  document.querySelectorAll('.acai-row').forEach(tr => {
+    const sales = Number(tr.querySelector('.ar-sales').value) || 0;
+    const fee   = Number(tr.querySelector('.ar-fee').value)   || 0;
+    const net   = sales - fee;
+    tr.querySelector('.ar-net-display').textContent = fmt(net);
+    total += net;
+  });
+  document.getElementById('bulk-ac-total').textContent = fmt(total);
+}
+
+document.querySelectorAll('.acai-row input').forEach(inp => inp.addEventListener('input', recalcAcaiRows));
+
+function recalcExpenseTotal() {
+  const total = Array.from(document.querySelectorAll('#expense-table-body .bexp-amount'))
+    .reduce((s, el) => s + (Number(el.value) || 0), 0);
+  document.getElementById('expense-table-total').textContent = fmt(total);
+}
+
+function addExpenseRow() {
+  const tbody = document.getElementById('expense-table-body');
+  const tr    = document.createElement('tr');
+  tr.className = 'expense-row';
+  tr.innerHTML = `
+    <td><select class="bexp-dept">
+      <option value="共通の経費">🏠 共通</option>
+      <option value="シーシャの経費">💨 シーシャ</option>
+      <option value="アサイーの経費">🍇 アサイー</option>
+    </select></td>
+    <td><select class="bexp-cat">
+      <option value="">選択</option>
+      <option>仕入れ</option><option>材料費</option><option>人件費</option>
+      <option>家賃</option><option>水道光熱費</option><option>広告費</option>
+      <option>消耗品</option><option>交通費</option><option>通信費</option>
+      <option>システム利用料</option><option>その他</option>
+    </select></td>
+    <td><input type="number" class="bexp-amount" value="0" min="0"></td>
+    <td><button type="button" class="bexp-remove">×</button></td>
+  `;
+  tr.querySelector('.bexp-remove').addEventListener('click', () => { tr.remove(); recalcExpenseTotal(); });
+  tr.querySelector('.bexp-amount').addEventListener('input', recalcExpenseTotal);
+  tbody.appendChild(tr);
+}
+
+document.getElementById('bulk-add-expense').addEventListener('click', addExpenseRow);
+
+document.getElementById('bulk-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const date  = document.getElementById('bulk-date').value;
+  const staff = document.getElementById('bulk-staff').value.trim();
+  let count   = 0;
+
+  document.querySelectorAll('#shisha-table-body .shisha-row').forEach(tr => {
+    const g = rowNum;
+    const shishaSales = g('.sr-shisha')(tr);
+    const total = shishaSales + g('.sr-drink')(tr) + g('.sr-food')(tr) - g('.sr-disc')(tr);
+    if (total === 0 && g('.sr-male')(tr) + g('.sr-female')(tr) === 0) return;
+    saveShishaSale({
+      date, staffName: staff,
+      tableNumber: tr.querySelector('.sr-table')?.value.trim() || '',
+      visitTime:   tr.querySelector('.sr-visit')?.value || '',
+      leaveTime:   tr.querySelector('.sr-leave')?.value || '',
+      customerType: '不明',
+      maleCount: g('.sr-male')(tr), femaleCount: g('.sr-female')(tr), shishaCount: g('.sr-count')(tr),
+      shishaSales, drinkSales: g('.sr-drink')(tr), foodSales: g('.sr-food')(tr),
+      chargeSales: 0, otherSales: 0, discount: g('.sr-disc')(tr),
+      cashAmount: g('.sr-cash')(tr), cardAmount: g('.sr-card')(tr), qrAmount: g('.sr-qr')(tr),
+      unpaidAmount: g('.sr-unpaid')(tr), unpaidCollectedAmount: 0, memo: '',
+    });
+    count++;
+  });
+
+  document.querySelectorAll('.acai-row').forEach(tr => {
+    const sales = Number(tr.querySelector('.ar-sales').value) || 0;
+    if (sales <= 0) return;
+    const fee = Number(tr.querySelector('.ar-fee').value) || 0;
+    const ch  = tr.dataset.channel;
+    saveAcaiSale({
+      date, staffName: staff, channel: ch,
+      orderNumber: '', customerType: '不明', customerName: '',
+      productName: '一括入力', size: '-', quantity: 1,
+      unitPrice: sales, productSales: sales,
+      toppingSales: 0, deliveryFee: 0, discount: 0, platformFee: fee, materialCost: 0,
+      cashAmount:      ch === '店頭'       ? sales : 0,
+      cardAmount: 0, qrAmount: 0,
+      rocketNowAmount: ch === 'Rocket Now' ? sales - fee : 0,
+      uberEatsAmount:  ch === 'Uber Eats'  ? sales - fee : 0,
+      otherAmount: 0, memo: '',
+    });
+    count++;
+  });
+
+  document.querySelectorAll('#expense-table-body .expense-row').forEach(tr => {
+    const amount = Number(tr.querySelector('.bexp-amount').value) || 0;
+    if (amount <= 0) return;
+    saveExpense({
+      date, payee: '',
+      department: tr.querySelector('.bexp-dept').value || '共通の経費',
+      category:   tr.querySelector('.bexp-cat').value  || 'その他',
+      amount, paymentMethod: '現金', hasReceipt: '後で確認', memo: '',
+    });
+    count++;
+  });
+
+  renderTodayStats();
+  document.getElementById('bulk-saved-detail').textContent = `${count}件を保存しました`;
+  document.getElementById('bulk-form-wrap').hidden   = true;
+  document.getElementById('bulk-saved-state').hidden = false;
+  showToast(`${count}件を保存しました`);
 });
 
-document.getElementById('btn-acai-ch-change').addEventListener('click', () => showAcaiStep('channel'));
+function resetBulkForm() {
+  document.getElementById('bulk-date').value  = today();
+  document.getElementById('bulk-staff').value = '';
+  document.getElementById('shisha-table-body').innerHTML  = '';
+  document.getElementById('expense-table-body').innerHTML = '';
+  document.querySelectorAll('.acai-row input').forEach(inp => { inp.value = '0'; });
+  document.querySelectorAll('.ar-net-display').forEach(el => { el.textContent = '¥0'; });
+  document.getElementById('bulk-ac-total').textContent       = '¥0';
+  document.getElementById('shisha-table-total').textContent  = '¥0';
+  document.getElementById('shisha-table-guests').textContent = '0 人';
+  document.getElementById('expense-table-total').textContent = '¥0';
+  addShishaRow(); addShishaRow(); addExpenseRow();
+  document.getElementById('bulk-form-wrap').hidden   = false;
+  document.getElementById('bulk-saved-state').hidden = true;
+}
+
+document.getElementById('bulk-again-btn').addEventListener('click', resetBulkForm);
+document.getElementById('bulk-today-btn').addEventListener('click', () => { showTodaySection('landing'); renderTodayStats(); });
+document.getElementById('bulk-dashboard-btn').addEventListener('click', () => {
+  document.querySelector('nav button[data-tab="summary"]').click();
+});
+
+addShishaRow(); addShishaRow(); addExpenseRow();
+
+// ── Shisha Form ───────────────────────────────────────────────────────────────
+
+function showShishaStep(step) {
+  document.getElementById('shisha-form-wrap').hidden   = (step !== 'form');
+  document.getElementById('shisha-saved-state').hidden = (step !== 'saved');
+}
+
+document.getElementById('sh-date').value = today();
+
+function recalcShisha() {
+  const nv = (id) => Number(document.getElementById(id)?.value) || 0;
+
+  const shishaSales = nv('sh-shisha');
+  const totalAmount = shishaSales + nv('sh-drink') + nv('sh-food')
+                    + nv('sh-charge') + nv('sh-other') - nv('sh-discount');
+
+  const maleCount   = nv('sh-male');
+  const femaleCount = nv('sh-female');
+  const totalCount  = maleCount + femaleCount;
+  const shishaCount = nv('sh-count');
+
+  document.getElementById('sh-total-count').textContent      = totalCount + ' 人';
+  document.getElementById('sh-calc-total').textContent       = fmt(totalAmount);
+  document.getElementById('sh-calc-avg-person').textContent  = fmt(totalCount  > 0 ? Math.round(totalAmount / totalCount)   : 0);
+  document.getElementById('sh-calc-avg-shisha').textContent  = fmt(shishaCount > 0 ? Math.round(shishaSales / shishaCount)  : 0);
+
+  const receivedAmount = nv('sh-cash') + nv('sh-card') + nv('sh-qr') + nv('sh-collected');
+  const billableToday  = totalAmount - nv('sh-unpaid');
+  const difference     = receivedAmount - billableToday;
+
+  document.getElementById('sh-calc-received').textContent = fmt(receivedAmount);
+  document.getElementById('sh-calc-diff').textContent     = fmt(difference);
+
+  const statusEl = document.getElementById('sh-calc-diff-status');
+  statusEl.textContent = difference === 0 ? 'OK' : '要確認';
+  statusEl.className   = difference === 0 ? 'diff-ok' : 'diff-ng';
+}
+
+[
+  'sh-shisha','sh-drink','sh-food','sh-charge','sh-other','sh-discount',
+  'sh-male','sh-female','sh-count',
+  'sh-cash','sh-card','sh-qr','sh-unpaid','sh-collected',
+].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', recalcShisha);
+});
+
+document.getElementById('shisha-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target;
+
+  // ゼロ売上・ゼロ来客はガード
+  const totalSales = (Number(f.shishaSales.value) + Number(f.drinkSales.value) +
+    Number(f.foodSales.value) + Number(f.chargeSales.value) + Number(f.otherSales.value) -
+    Number(f.discount.value)) || 0;
+  const totalGuests = (Number(f.maleCount.value) + Number(f.femaleCount.value)) || 0;
+  if (totalSales === 0 && totalGuests === 0) {
+    showToast('売上か来客数を入力してください');
+    return;
+  }
+
+  // 差額チェック
+  const diffEl = document.getElementById('sh-calc-diff-status');
+  if (diffEl && diffEl.classList.contains('diff-ng')) {
+    if (!confirm('差額が「要確認」のまま保存します。よろしいですか？')) return;
+  }
+
+  const saved = saveShishaSale({
+    date:                  f.date.value,
+    staffName:             f.staffName.value.trim(),
+    tableNumber:           f.tableNumber.value.trim(),
+    visitTime:             f.visitTime.value,
+    leaveTime:             f.leaveTime.value,
+    customerType:          f.customerType.value,
+    maleCount:             Number(f.maleCount.value)             || 0,
+    femaleCount:           Number(f.femaleCount.value)           || 0,
+    shishaCount:           Number(f.shishaCount.value)           || 0,
+    shishaSales:           Number(f.shishaSales.value)           || 0,
+    drinkSales:            Number(f.drinkSales.value)            || 0,
+    foodSales:             Number(f.foodSales.value)             || 0,
+    chargeSales:           Number(f.chargeSales.value)           || 0,
+    otherSales:            Number(f.otherSales.value)            || 0,
+    discount:              Number(f.discount.value)              || 0,
+    cashAmount:            Number(f.cashAmount.value)            || 0,
+    cardAmount:            Number(f.cardAmount.value)            || 0,
+    qrAmount:              Number(f.qrAmount.value)              || 0,
+    unpaidAmount:          Number(f.unpaidAmount.value)          || 0,
+    unpaidCollectedAmount: Number(f.unpaidCollectedAmount.value) || 0,
+    memo:                  f.memo.value.trim(),
+  });
+
+  const tableLabel = saved.tableNumber ? `テーブル ${saved.tableNumber}` : '—';
+  document.getElementById('shisha-saved-detail').textContent =
+    `${tableLabel}  ／  ${saved.totalCount}人  ／  ${fmt(saved.totalAmount)}`;
+
+  renderTodayStats();
+  showShishaStep('saved');
+  showToast('シーシャ売上を保存しました');
+});
+
+function resetToggles(form) {
+  form.querySelectorAll('.toggle-group').forEach(group => {
+    const input = form.querySelector(`[name="${group.dataset.target}"]`);
+    const first = group.querySelector('.toggle-btn');
+    group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    if (first) { first.classList.add('active'); if (input) input.value = first.dataset.val; }
+  });
+}
+
+function resetShishaForm() {
+  const form  = document.getElementById('shisha-form');
+  const staff = form.querySelector('[name="staffName"]').value;
+  form.reset();
+  document.getElementById('sh-date').value = today();
+  form.querySelector('[name="staffName"]').value = staff;
+  resetToggles(form);
+  recalcShisha();
+}
+
+document.getElementById('shisha-continue-btn').addEventListener('click', () => {
+  resetShishaForm();
+  showShishaStep('form');
+});
+
+document.getElementById('shisha-today-btn').addEventListener('click', () => {
+  showTodaySection('landing');
+  renderTodayStats();
+});
+
+document.getElementById('shisha-dashboard-btn').addEventListener('click', () => {
+  document.querySelector('nav button[data-tab="summary"]').click();
+});
+
+// ── Acai Form ────────────────────────────────────────────────────────────────
+const CH_EMOJI = { '店頭': '🏪', 'Rocket Now': '🚀', 'Uber Eats': '🛵', 'その他': '📦' };
+
+function showAcaiSaved(show) {
+  document.getElementById('acai-form-wrap').hidden   = show;
+  document.getElementById('acai-saved-state').hidden = !show;
+}
 
 // 今日の日付をセット
 document.getElementById('acai-date').value = today();
+
+// チャネル変更 → 関連支払い欄をハイライト
+document.getElementById('acai-channel-val').addEventListener('change', (e) => {
+  const ch = e.target.value;
+  document.getElementById('acai-rocket').closest('div').style.background =
+    ch === 'Rocket Now' ? '#eaf4fb' : '';
+  document.getElementById('acai-uber').closest('div').style.background =
+    ch === 'Uber Eats'  ? '#f5eef8' : '';
+  recalcAcai();
+});
 
 // Toggle group（フォーム内の顧客区分・サイズ）
 document.querySelectorAll('.toggle-group').forEach(group => {
@@ -134,9 +533,11 @@ document.querySelectorAll('.qty-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const input = document.getElementById(btn.dataset.target);
     if (!input) return;
-    const v = Number(input.value) || 0;
+    const v      = Number(input.value) || 0;
+    const minVal = parseInt(input.getAttribute('min'), 10);
+    const floor  = isNaN(minVal) ? 1 : minVal;
     if (btn.dataset.action === 'inc') input.value = v + 1;
-    if (btn.dataset.action === 'dec' && v > 1) input.value = v - 1;
+    if (btn.dataset.action === 'dec' && v > floor) input.value = v - 1;
     input.dispatchEvent(new Event('input'));
   });
 });
@@ -204,6 +605,16 @@ document.getElementById('acai-form').addEventListener('submit', (e) => {
   const qty = Number(f.quantity.value) || 0;
   const up  = Number(f.unitPrice.value) || 0;
 
+  if (qty === 0 || up === 0) {
+    showToast('数量と単価を入力してください');
+    return;
+  }
+
+  const diffEl = document.getElementById('calc-diff-status');
+  if (diffEl && diffEl.classList.contains('diff-ng')) {
+    if (!confirm('差額が「要確認」のまま保存します。よろしいですか？')) return;
+  }
+
   const saved = saveAcaiSale({
     date:            f.date.value,
     staffName:       f.staffName.value.trim(),
@@ -230,33 +641,28 @@ document.getElementById('acai-form').addEventListener('submit', (e) => {
     memo:            f.memo.value.trim(),
   });
 
-  const cfg = CH_CONFIG[saved.channel] || {};
+  const emoji = CH_EMOJI[saved.channel] || '📦';
   document.getElementById('acai-saved-detail').textContent =
-    `${cfg.emoji} ${saved.channel}  ／  ${saved.productName}（${saved.size}）× ${saved.quantity}  ／  ${fmt(saved.totalAmount)}`;
+    `${emoji} ${saved.channel}  ／  ${saved.productName}（${saved.size}）× ${saved.quantity}  ／  ${fmt(saved.totalAmount)}`;
 
   renderTodayStats();
-  showAcaiStep('saved');
+  showAcaiSaved(true);
   showToast('アサイー売上を保存しました');
 });
 
-// 保存後ボタン群
 function resetAcaiForm() {
-  const form = document.getElementById('acai-form');
+  const form  = document.getElementById('acai-form');
+  const staff = form.querySelector('[name="staffName"]').value;
   form.reset();
   document.getElementById('acai-date').value = today();
-  // toggle ボタンを初期状態（最初の選択肢）に戻す
-  form.querySelectorAll('.toggle-group').forEach(group => {
-    const input  = form.querySelector(`[name="${group.dataset.target}"]`);
-    const first  = group.querySelector('.toggle-btn');
-    group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-    if (first) { first.classList.add('active'); if (input) input.value = first.dataset.val; }
-  });
+  form.querySelector('[name="staffName"]').value = staff;
+  resetToggles(form);
   recalcAcai();
 }
 
 document.getElementById('acai-continue-btn').addEventListener('click', () => {
   resetAcaiForm();
-  showAcaiStep('channel');
+  showAcaiSaved(false);
 });
 
 document.getElementById('acai-today-btn').addEventListener('click', () => {
@@ -363,46 +769,6 @@ document.getElementById('exp-dashboard-btn').addEventListener('click', () => {
   document.querySelector('nav button[data-tab="summary"]').click();
 });
 
-// ── Entry Form ────────────────────────────────────────────────────────────────
-document.getElementById('entry-date').value = today();
-
-document.getElementById('entry-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const f = e.target;
-  const record = {
-    id: Date.now(),
-    date: f.date.value,
-    category: f.category.value,
-    item: f.item.value.trim(),
-    qty: Number(f.qty.value),
-    price: Number(f.price.value),
-    note: f.note.value.trim(),
-  };
-  record.total = record.qty * record.price;
-  records.push(record);
-  saveRecords(records);
-  showToast('売上を記録しました');
-  f.reset();
-  f.date.value = today();
-});
-
-// カテゴリ変更でアイテム候補を更新
-const presets = {
-  shisha: ['シーシャ（1時間）', 'シーシャ（2時間）', 'シーシャ（3時間）', 'フレーバー追加', 'ヘッド交換'],
-  acai:   ['アサイーボウル（S）', 'アサイーボウル（M）', 'アサイーボウル（L）', 'スムージー'],
-  drink:  ['ソフトドリンク', 'アルコール', 'コーヒー', 'ハーブティー'],
-};
-
-document.getElementById('cat').addEventListener('change', (e) => {
-  const list = document.getElementById('item-list');
-  list.innerHTML = '';
-  (presets[e.target.value] || []).forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p;
-    list.appendChild(opt);
-  });
-});
-
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 const MONTHLY_TARGET = 500000;
 const _charts = {};
@@ -422,6 +788,13 @@ function aggregateDashboard(monthStr) {
   const salesTotal   = shishaTotal + acaiTotal;
   const profit       = salesTotal - expenseTotal;
   const profitRate   = salesTotal > 0 ? Math.round((profit / salesTotal) * 1000) / 10 : null;
+
+  // 部門別経費・利益率
+  const shishaExpense    = expense.filter(r => r.department === 'シーシャの経費').reduce((s, r) => s + (r.amount || 0), 0);
+  const acaiExpense      = expense.filter(r => r.department === 'アサイーの経費').reduce((s, r) => s + (r.amount || 0), 0);
+  const shishaProfitRate = shishaTotal > 0 ? Math.round(((shishaTotal - shishaExpense) / shishaTotal) * 1000) / 10 : null;
+  const acaiGross        = acai.reduce((s, r) => s + (r.grossProfit || 0), 0) - acaiExpense;
+  const acaiProfitRate   = acaiTotal  > 0 ? Math.round((acaiGross / acaiTotal)  * 1000) / 10 : null;
 
   const acaiByChannel = { '店頭': 0, 'Rocket Now': 0, 'Uber Eats': 0, 'その他': 0 };
   acai.forEach(r => { acaiByChannel[r.channel] = (acaiByChannel[r.channel] || 0) + (r.totalAmount || 0); });
@@ -470,7 +843,7 @@ function aggregateDashboard(monthStr) {
 
   return {
     shishaTotal, acaiTotal, expenseTotal, salesTotal,
-    profit, profitRate,
+    profit, profitRate, shishaProfitRate, acaiProfitRate,
     acaiByChannel, visitors, avgSpend, unpaid,
     expByCategory, payByMethod,
     dailyData, monthlyData,
@@ -658,7 +1031,15 @@ function renderDashboard() {
   document.getElementById('dk-acai').textContent        = fmt(d.acaiTotal);
   document.getElementById('dk-expense').textContent     = fmt(d.expenseTotal);
   document.getElementById('dk-profit').textContent      = fmt(d.profit);
-  document.getElementById('dk-profit-rate').textContent = d.profitRate !== null ? d.profitRate + '%' : '—';
+  const rateStr = (v) => v !== null ? v + '%' : '—';
+  document.getElementById('dk-profit-rate').textContent        = rateStr(d.profitRate);
+  document.getElementById('dk-profit-rate-2').textContent      = rateStr(d.profitRate);
+  document.getElementById('dk-shisha-profit-rate').textContent = d.shishaProfitRate  !== null ? d.shishaProfitRate  + '%' : '—';
+  document.getElementById('dk-acai-profit-rate').textContent   = d.acaiProfitRate    !== null ? d.acaiProfitRate    + '%' : '—';
+
+  const rateColor = (v) => v === null ? '' : v < 0 ? '#c0392b' : v < 15 ? '#d35400' : '#1e8449';
+  document.getElementById('dk-shisha-profit-rate').style.color = rateColor(d.shishaProfitRate);
+  document.getElementById('dk-acai-profit-rate').style.color   = rateColor(d.acaiProfitRate);
 
   const profitCard = document.getElementById('dk-profit-card');
   if (d.profit < 0) profitCard.classList.add('is-loss');
@@ -761,8 +1142,7 @@ function buildShishaList(records) {
       </div>
       <div class="record-amount">${fmt(r.totalAmount || 0)}</div>
       <div class="record-actions">
-        <button class="btn-edit" data-type="shisha" data-id="${r.id}">編集</button>
-        <button class="btn-del"  data-type="shisha" data-id="${r.id}">削除</button>
+        <button class="btn-del" data-type="shisha" data-id="${r.id}">削除</button>
       </div>
     </div>`).join('') + '</div>';
 }
@@ -777,8 +1157,7 @@ function buildAcaiList(records) {
       </div>
       <div class="record-amount">${fmt(r.totalAmount || 0)}</div>
       <div class="record-actions">
-        <button class="btn-edit" data-type="acai" data-id="${r.id}">編集</button>
-        <button class="btn-del"  data-type="acai" data-id="${r.id}">削除</button>
+        <button class="btn-del" data-type="acai" data-id="${r.id}">削除</button>
       </div>
     </div>`).join('') + '</div>';
 }
@@ -793,8 +1172,7 @@ function buildExpenseList(records) {
       </div>
       <div class="record-amount">${fmt(r.amount || 0)}</div>
       <div class="record-actions">
-        <button class="btn-edit" data-type="expense" data-id="${r.id}">編集</button>
-        <button class="btn-del"  data-type="expense" data-id="${r.id}">削除</button>
+        <button class="btn-del" data-type="expense" data-id="${r.id}">削除</button>
       </div>
     </div>`).join('') + '</div>';
 }
@@ -973,151 +1351,18 @@ function renderMonthlyCharts(d) {
   });
 }
 
-// ── 編集モーダル ──────────────────────────────────────────────────────────────
-
-let _editType = null;
-let _editId   = null;
-
-function openEditModal(type, id) {
-  _editType = type;
-  _editId   = id;
-  const titles = { shisha: '💨 シーシャ売上を編集', acai: '🍇 アサイー売上を編集', expense: '💸 経費を編集' };
-  document.getElementById('edit-modal-title').textContent  = titles[type] || '編集';
-  document.getElementById('edit-form-body').innerHTML      = buildEditFormHtml(type, id);
-  document.getElementById('edit-modal').hidden             = false;
-  document.body.style.overflow                             = 'hidden';
-}
-
-function closeEditModal() {
-  document.getElementById('edit-modal').hidden = true;
-  document.body.style.overflow = '';
-  _editType = null;
-  _editId   = null;
-}
-
-function sel(opts, cur) {
-  return opts.map(v => `<option${cur === v ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('');
-}
-
-function buildEditFormHtml(type, id) {
-  if (type === 'shisha') {
-    const r = getShishaSales().find(r => r.id === id);
-    if (!r) return '<p class="empty">データが見つかりません</p>';
-    return `<div class="form-grid">
-      <div><label>日付</label><input name="date" type="date" value="${r.date || ''}"></div>
-      <div><label>担当者</label><input name="staffName" type="text" value="${escapeHtml(r.staffName)}"></div>
-      <div><label>テーブル番号</label><input name="tableNumber" type="text" value="${escapeHtml(r.tableNumber)}"></div>
-      <div><label>来店時間</label><input name="visitTime" type="time" value="${r.visitTime || ''}"></div>
-      <div><label>退店時間</label><input name="leaveTime" type="time" value="${r.leaveTime || ''}"></div>
-      <div><label>顧客区分</label><select name="customerType">${sel(['新規','リピーター','不明'], r.customerType)}</select></div>
-      <div><label>男性人数</label><input name="maleCount" type="number" value="${r.maleCount || 0}" min="0"></div>
-      <div><label>女性人数</label><input name="femaleCount" type="number" value="${r.femaleCount || 0}" min="0"></div>
-      <div><label>シーシャ台数</label><input name="shishaCount" type="number" value="${r.shishaCount || 0}" min="0"></div>
-      <div><label>シーシャ売上（円）</label><input name="shishaSales" type="number" value="${r.shishaSales || 0}" min="0"></div>
-      <div><label>ドリンク売上（円）</label><input name="drinkSales" type="number" value="${r.drinkSales || 0}" min="0"></div>
-      <div><label>フード売上（円）</label><input name="foodSales" type="number" value="${r.foodSales || 0}" min="0"></div>
-      <div><label>チャージ売上（円）</label><input name="chargeSales" type="number" value="${r.chargeSales || 0}" min="0"></div>
-      <div><label>その他売上（円）</label><input name="otherSales" type="number" value="${r.otherSales || 0}" min="0"></div>
-      <div><label>値引き（円）</label><input name="discount" type="number" value="${r.discount || 0}" min="0"></div>
-      <div><label>現金（円）</label><input name="cashAmount" type="number" value="${r.cashAmount || 0}" min="0"></div>
-      <div><label>カード（円）</label><input name="cardAmount" type="number" value="${r.cardAmount || 0}" min="0"></div>
-      <div><label>QR（円）</label><input name="qrAmount" type="number" value="${r.qrAmount || 0}" min="0"></div>
-      <div><label>未払い（円）</label><input name="unpaidAmount" type="number" value="${r.unpaidAmount || 0}" min="0"></div>
-      <div><label>未払い回収（円）</label><input name="unpaidCollectedAmount" type="number" value="${r.unpaidCollectedAmount || 0}" min="0"></div>
-    </div>
-    <div style="margin-top:12px"><label>メモ</label><textarea name="memo" rows="2">${escapeHtml(r.memo)}</textarea></div>`;
-  }
-
-  if (type === 'acai') {
-    const r = getAcaiSales().find(r => r.id === id);
-    if (!r) return '<p class="empty">データが見つかりません</p>';
-    return `<div class="form-grid">
-      <div><label>日付</label><input name="date" type="date" value="${r.date || ''}"></div>
-      <div><label>担当者</label><input name="staffName" type="text" value="${escapeHtml(r.staffName)}"></div>
-      <div><label>チャネル</label><select name="channel">${sel(['店頭','Rocket Now','Uber Eats','その他'], r.channel)}</select></div>
-      <div><label>注文番号</label><input name="orderNumber" type="text" value="${escapeHtml(r.orderNumber)}"></div>
-      <div><label>顧客区分</label><select name="customerType">${sel(['不明','新規','リピーター'], r.customerType)}</select></div>
-      <div><label>商品名</label><input name="productName" type="text" value="${escapeHtml(r.productName)}"></div>
-      <div><label>サイズ</label><select name="size">${sel(['M','S','L'], r.size)}</select></div>
-      <div><label>数量</label><input name="quantity" type="number" value="${r.quantity || 1}" min="1"></div>
-      <div><label>単価（円）</label><input name="unitPrice" type="number" value="${r.unitPrice || 0}" min="0"></div>
-      <div><label>商品売上（円）</label><input name="productSales" type="number" value="${r.productSales || 0}" min="0"></div>
-      <div><label>トッピング（円）</label><input name="toppingSales" type="number" value="${r.toppingSales || 0}" min="0"></div>
-      <div><label>配送料（円）</label><input name="deliveryFee" type="number" value="${r.deliveryFee || 0}" min="0"></div>
-      <div><label>値引き（円）</label><input name="discount" type="number" value="${r.discount || 0}" min="0"></div>
-      <div><label>販売手数料（円）</label><input name="platformFee" type="number" value="${r.platformFee || 0}" min="0"></div>
-      <div><label>材料費（円）</label><input name="materialCost" type="number" value="${r.materialCost || 0}" min="0"></div>
-      <div><label>現金（円）</label><input name="cashAmount" type="number" value="${r.cashAmount || 0}" min="0"></div>
-      <div><label>カード（円）</label><input name="cardAmount" type="number" value="${r.cardAmount || 0}" min="0"></div>
-      <div><label>QR（円）</label><input name="qrAmount" type="number" value="${r.qrAmount || 0}" min="0"></div>
-      <div><label>Rocket Now入金（円）</label><input name="rocketNowAmount" type="number" value="${r.rocketNowAmount || 0}" min="0"></div>
-      <div><label>Uber Eats入金（円）</label><input name="uberEatsAmount" type="number" value="${r.uberEatsAmount || 0}" min="0"></div>
-      <div><label>その他入金（円）</label><input name="otherAmount" type="number" value="${r.otherAmount || 0}" min="0"></div>
-    </div>
-    <div style="margin-top:12px"><label>メモ</label><textarea name="memo" rows="2">${escapeHtml(r.memo)}</textarea></div>`;
-  }
-
-  if (type === 'expense') {
-    const r = getExpenses().find(r => r.id === id);
-    if (!r) return '<p class="empty">データが見つかりません</p>';
-    return `<div class="form-grid">
-      <div><label>日付</label><input name="date" type="date" value="${r.date || ''}"></div>
-      <div><label>支払先</label><input name="payee" type="text" value="${escapeHtml(r.payee)}"></div>
-      <div><label>部門</label><select name="department">${sel(['シーシャの経費','アサイーの経費','共通の経費'], r.department)}</select></div>
-      <div><label>カテゴリ</label><select name="category">${sel(['仕入れ','材料費','人件費','家賃','水道光熱費','広告費','消耗品','交通費','通信費','システム利用料','その他'], r.category)}</select></div>
-      <div><label>金額（円）</label><input name="amount" type="number" value="${r.amount || 0}" min="0"></div>
-      <div><label>支払方法</label><select name="paymentMethod">${sel(['現金','カード','振込','口座引落','その他'], r.paymentMethod)}</select></div>
-      <div><label>領収書</label><select name="hasReceipt">${sel(['あり','なし','後で確認'], r.hasReceipt)}</select></div>
-    </div>
-    <div style="margin-top:12px"><label>メモ</label><textarea name="memo" rows="2">${escapeHtml(r.memo)}</textarea></div>`;
-  }
-
-  return '<p class="empty">不明なデータ種類です</p>';
-}
-
-document.getElementById('edit-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const data = Object.fromEntries(new FormData(e.target).entries());
-  const nums = ['maleCount','femaleCount','shishaCount','shishaSales','drinkSales','foodSales',
-    'chargeSales','otherSales','discount','cashAmount','cardAmount','qrAmount','unpaidAmount',
-    'unpaidCollectedAmount','quantity','unitPrice','productSales','toppingSales','deliveryFee',
-    'platformFee','materialCost','rocketNowAmount','uberEatsAmount','otherAmount','amount'];
-  nums.forEach(k => { if (k in data) data[k] = Number(data[k]) || 0; });
-
-  try {
-    if (_editType === 'shisha')  updateShishaSale(_editId, data);
-    if (_editType === 'acai')    updateAcaiSale(_editId, data);
-    if (_editType === 'expense') updateExpense(_editId, data);
-    closeEditModal();
-    renderHistoryView();
-    renderTodayStats();
-    showToast('更新しました');
-  } catch (err) {
-    showToast('エラー: ' + err.message);
-  }
-});
-
-document.getElementById('edit-modal-close').addEventListener('click', closeEditModal);
-document.getElementById('edit-modal-cancel').addEventListener('click', closeEditModal);
-document.getElementById('edit-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeEditModal(); });
-
-// 削除・編集ボタン（イベント委譲）
+// ── 削除ボタン（イベント委譲）────────────────────────────────────────────────
 document.getElementById('history').addEventListener('click', e => {
-  const del  = e.target.closest('.btn-del');
-  const edit = e.target.closest('.btn-edit');
-
-  if (del) {
-    if (!confirm('このデータを削除しますか？')) return;
-    const { type, id } = del.dataset;
-    if (type === 'shisha')  deleteShishaSale(id);
-    if (type === 'acai')    deleteAcaiSale(id);
-    if (type === 'expense') deleteExpense(id);
-    renderDailyView(document.getElementById('hist-date').value);
-    renderTodayStats();
-    showToast('削除しました');
-  }
-
-  if (edit) openEditModal(edit.dataset.type, edit.dataset.id);
+  const del = e.target.closest('.btn-del');
+  if (!del) return;
+  if (!confirm('このデータを削除しますか？')) return;
+  const { type, id } = del.dataset;
+  if (type === 'shisha')  deleteShishaSale(id);
+  if (type === 'acai')    deleteAcaiSale(id);
+  if (type === 'expense') deleteExpense(id);
+  renderDailyView(document.getElementById('hist-date').value);
+  renderTodayStats();
+  showToast('削除しました');
 });
 
 // ── モード切替・ナビ ──────────────────────────────────────────────────────────

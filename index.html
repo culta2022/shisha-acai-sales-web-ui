@@ -4,20 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>シーシャ×アサイー 売上管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
 <header>
-  <span>💨🍇</span>
-  <h1>シーシャ×アサイー 売上管理</h1>
+  <div class="header-icon">💨🍇</div>
+  <div class="header-text">
+    <h1>シーシャ×アサイー</h1>
+    <p class="header-sub">売上管理システム</p>
+  </div>
 </header>
 
 <nav>
-  <button class="active" data-tab="today">今日の入力</button>
-  <button data-tab="summary">ダッシュボード</button>
-  <button data-tab="history">履歴</button>
+  <button class="active" data-tab="today"><span class="nav-icon">✏️</span><span class="nav-label">今日の入力</span></button>
+  <button data-tab="summary"><span class="nav-icon">📊</span><span class="nav-label">ダッシュボード</span></button>
+  <button data-tab="history"><span class="nav-icon">📋</span><span class="nav-label">履歴</span></button>
 </nav>
 
 <main>
@@ -72,16 +78,175 @@
           </div>
           <span class="lc-arrow">›</span>
         </button>
+
+        <button class="landing-card card-bulk" id="btn-go-bulk">
+          <div class="lc-icon">📋</div>
+          <div class="lc-body">
+            <div class="lc-title">日次一括入力</div>
+            <div class="lc-desc">1日分のシーシャ・アサイー・経費をまとめて入力します。</div>
+          </div>
+          <span class="lc-arrow">›</span>
+        </button>
       </div>
     </div>
 
     <!-- シーシャ入力サブ画面（Step 3 で実装） -->
     <div id="today-shisha" class="today-sub" hidden>
       <button class="back-link" id="back-from-shisha">← 今日の入力に戻る</button>
-      <div class="card stub-card">
-        <div class="stub-icon">💨</div>
-        <div class="stub-title">シーシャ売上入力</div>
-        <p class="stub-msg">入力フォームを準備中です。</p>
+
+      <!-- Step 1: 入力フォーム -->
+      <div id="shisha-form-wrap">
+        <form id="shisha-form" autocomplete="off">
+
+          <!-- 基本情報 -->
+          <div class="card">
+            <h2>💨 シーシャ売上入力</h2>
+            <div class="form-grid">
+              <div><label>日付</label>
+                <input type="date" name="date" id="sh-date" required></div>
+              <div><label>担当者</label>
+                <input type="text" name="staffName" id="sh-staff" placeholder="スタッフ名"></div>
+              <div><label>テーブル番号</label>
+                <input type="text" name="tableNumber" id="sh-table" placeholder="1, A など"></div>
+              <div><label>来店時刻</label>
+                <input type="time" name="visitTime" id="sh-visit"></div>
+              <div><label>退店時刻</label>
+                <input type="time" name="leaveTime" id="sh-leave"></div>
+            </div>
+          </div>
+
+          <!-- 来店人数 -->
+          <div class="card">
+            <h2>来店人数</h2>
+            <div class="form-grid">
+              <div>
+                <label>男性（人）</label>
+                <div class="qty-control">
+                  <button type="button" class="qty-btn" data-target="sh-male" data-action="dec">−</button>
+                  <input type="number" name="maleCount" id="sh-male" value="0" min="0">
+                  <button type="button" class="qty-btn" data-target="sh-male" data-action="inc">＋</button>
+                </div>
+              </div>
+              <div>
+                <label>女性（人）</label>
+                <div class="qty-control">
+                  <button type="button" class="qty-btn" data-target="sh-female" data-action="dec">−</button>
+                  <input type="number" name="femaleCount" id="sh-female" value="0" min="0">
+                  <button type="button" class="qty-btn" data-target="sh-female" data-action="inc">＋</button>
+                </div>
+              </div>
+              <div>
+                <label>合計</label>
+                <div class="total-count-display" id="sh-total-count">0 人</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 顧客区分 -->
+          <div class="card">
+            <h2>顧客区分</h2>
+            <div class="toggle-group" data-target="customerType">
+              <button type="button" class="toggle-btn active" data-val="不明">不明</button>
+              <button type="button" class="toggle-btn" data-val="新規">新規</button>
+              <button type="button" class="toggle-btn" data-val="リピーター">リピーター</button>
+            </div>
+            <input type="hidden" name="customerType" value="不明">
+          </div>
+
+          <!-- 売上内訳 -->
+          <div class="card">
+            <h2>売上内訳</h2>
+            <div class="form-grid">
+              <div>
+                <label>シーシャ台数</label>
+                <div class="qty-control">
+                  <button type="button" class="qty-btn" data-target="sh-count" data-action="dec">−</button>
+                  <input type="number" name="shishaCount" id="sh-count" value="1" min="0">
+                  <button type="button" class="qty-btn" data-target="sh-count" data-action="inc">＋</button>
+                </div>
+              </div>
+              <div><label>シーシャ売上（円）</label>
+                <input type="number" name="shishaSales" id="sh-shisha" value="0" min="0"></div>
+              <div><label>ドリンク売上（円）</label>
+                <input type="number" name="drinkSales" id="sh-drink" value="0" min="0"></div>
+              <div><label>フード売上（円）</label>
+                <input type="number" name="foodSales" id="sh-food" value="0" min="0"></div>
+              <div><label>チャージ（円）</label>
+                <input type="number" name="chargeSales" id="sh-charge" value="0" min="0"></div>
+              <div><label>その他売上（円）</label>
+                <input type="number" name="otherSales" id="sh-other" value="0" min="0"></div>
+              <div><label>値引き（円）</label>
+                <input type="number" name="discount" id="sh-discount" value="0" min="0"></div>
+            </div>
+          </div>
+
+          <!-- 売上サマリー（自動計算） -->
+          <div class="card calc-card">
+            <h2>売上サマリー（自動計算）</h2>
+            <div class="calc-row cr-total">
+              <span class="cr-label">合計売上</span>
+              <span class="cr-val cr-big" id="sh-calc-total">¥0</span>
+            </div>
+            <div class="calc-row">
+              <span class="cr-label">客単価</span>
+              <span class="cr-val" id="sh-calc-avg-person">¥0</span>
+            </div>
+            <div class="calc-row">
+              <span class="cr-label">シーシャ 1 台あたり</span>
+              <span class="cr-val" id="sh-calc-avg-shisha">¥0</span>
+            </div>
+          </div>
+
+          <!-- 支払い情報 -->
+          <div class="card">
+            <h2>支払い情報</h2>
+            <div class="form-grid">
+              <div><label>現金（円）</label>
+                <input type="number" name="cashAmount" id="sh-cash" value="0" min="0"></div>
+              <div><label>カード（円）</label>
+                <input type="number" name="cardAmount" id="sh-card" value="0" min="0"></div>
+              <div><label>QR決済（円）</label>
+                <input type="number" name="qrAmount" id="sh-qr" value="0" min="0"></div>
+              <div><label>未収（後払い）（円）</label>
+                <input type="number" name="unpaidAmount" id="sh-unpaid" value="0" min="0"></div>
+              <div><label>旧未収 回収分（円）</label>
+                <input type="number" name="unpaidCollectedAmount" id="sh-collected" value="0" min="0"></div>
+            </div>
+            <div class="calc-recv">
+              <div class="calc-row">
+                <span class="cr-label">受け取った合計</span>
+                <span class="cr-val cr-big" id="sh-calc-received">¥0</span>
+              </div>
+              <div class="calc-row">
+                <span class="cr-label">差額（請求額 − 受け取り）</span>
+                <span class="cr-val" id="sh-calc-diff">¥0</span>
+                <span id="sh-calc-diff-status" class="diff-ok">OK</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- メモ -->
+          <div class="card">
+            <h2>備考</h2>
+            <textarea name="memo" rows="3" placeholder="メモ（任意）"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-save-big">保存する 💾</button>
+        </form>
+      </div>
+
+      <!-- Step 2: 保存完了 -->
+      <div id="shisha-saved-state" hidden>
+        <div class="card saved-card">
+          <div class="saved-icon-big">✅</div>
+          <div class="saved-msg-big">保存しました！</div>
+          <div class="saved-detail" id="shisha-saved-detail"></div>
+        </div>
+        <div class="saved-actions">
+          <button class="btn btn-primary"   id="shisha-continue-btn">続けて入力</button>
+          <button class="btn btn-secondary" id="shisha-today-btn">今日の入力に戻る</button>
+          <button class="btn btn-secondary" id="shisha-dashboard-btn">ダッシュボードを見る</button>
+        </div>
       </div>
     </div>
 
@@ -89,49 +254,29 @@
     <div id="today-acai" class="today-sub" hidden>
       <button class="back-link" id="back-from-acai">← 今日の入力に戻る</button>
 
-      <!-- Step 1: チャネル選択 -->
-      <div id="acai-ch-step">
-        <div class="card">
-          <h2>🍇 アサイーボウル売上入力</h2>
-          <p class="ch-step-hint">まず販売チャネルを選んでください</p>
-          <div class="ch-grid">
-            <button type="button" class="ch-btn ch-instore" data-ch="店頭">
-              <span class="ch-emoji">🏪</span><span class="ch-name">店頭</span>
-            </button>
-            <button type="button" class="ch-btn ch-rocket" data-ch="Rocket Now">
-              <span class="ch-emoji">🚀</span><span class="ch-name">Rocket Now</span>
-            </button>
-            <button type="button" class="ch-btn ch-uber" data-ch="Uber Eats">
-              <span class="ch-emoji">🛵</span><span class="ch-name">Uber Eats</span>
-            </button>
-            <button type="button" class="ch-btn ch-other" data-ch="その他">
-              <span class="ch-emoji">📦</span><span class="ch-name">その他</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 2: 入力フォーム -->
-      <div id="acai-form-wrap" hidden>
-        <div class="acai-ch-badge" id="acai-ch-badge">
-          <span id="acai-badge-icon"></span>
-          <span id="acai-badge-label"></span>
-          <button type="button" class="btn-ch-change" id="btn-acai-ch-change">チャネルを変更</button>
-        </div>
-
+      <div id="acai-form-wrap">
         <form id="acai-form" autocomplete="off">
-          <input type="hidden" name="channel" id="acai-channel-val">
 
           <!-- 基本情報 -->
           <div class="card">
-            <h2>基本情報</h2>
+            <h2>🍇 アサイーボウル売上入力</h2>
             <div class="form-grid">
               <div><label>日付</label>
                 <input type="date" name="date" id="acai-date" required></div>
               <div><label>担当者</label>
                 <input type="text" name="staffName" placeholder="スタッフ名"></div>
+              <div>
+                <label>販売チャネル</label>
+                <select name="channel" id="acai-channel-val" required>
+                  <option value="">選択してください</option>
+                  <option value="店頭">🏪 店頭</option>
+                  <option value="Rocket Now">🚀 Rocket Now（出前）</option>
+                  <option value="Uber Eats">🛵 Uber Eats（出前）</option>
+                  <option value="その他">📦 その他</option>
+                </select>
+              </div>
               <div><label>注文番号</label>
-                <input type="text" name="orderNumber" placeholder="UE-00123 など"></div>
+                <input type="text" name="orderNumber" placeholder="RN-001 / UE-00123 など"></div>
               <div><label>お客様名</label>
                 <input type="text" name="customerName" placeholder="任意"></div>
             </div>
@@ -260,7 +405,7 @@
         </form>
       </div>
 
-      <!-- Step 3: 保存完了 -->
+      <!-- 保存完了 -->
       <div id="acai-saved-state" hidden>
         <div class="card saved-card">
           <div class="saved-icon-big">✅</div>
@@ -414,55 +559,118 @@
       </div>
     </div>
 
-  </section>
+    <!-- 一括入力サブ画面 -->
+    <div id="today-bulk" class="today-sub" hidden>
+      <button class="back-link" id="back-from-bulk">← 今日の入力に戻る</button>
 
-  <!-- ── 旧売上入力（JS参照保持のため残す） ── -->
-  <section id="entry" class="section">
-    <div class="card">
-      <h2>売上を記録する</h2>
-      <form id="entry-form" autocomplete="off">
-        <div class="form-grid">
-          <div>
-            <label>日付</label>
-            <input type="date" name="date" id="entry-date" required>
+      <div id="bulk-form-wrap">
+        <form id="bulk-form" autocomplete="off">
+
+          <!-- 日付・担当者 -->
+          <div class="card">
+            <h2>📅 日付・担当者</h2>
+            <div class="form-grid">
+              <div><label>日付</label><input type="date" id="bulk-date" required></div>
+              <div><label>担当者</label><input type="text" id="bulk-staff" placeholder="スタッフ名"></div>
+            </div>
           </div>
-          <div>
-            <label>カテゴリ</label>
-            <select name="category" id="cat" required>
-              <option value="shisha">💨 シーシャ</option>
-              <option value="acai">🍇 アサイー</option>
-              <option value="drink">🥤 ドリンク</option>
-            </select>
+
+          <!-- シーシャ テーブル別 -->
+          <div class="card bulk-card-shisha">
+            <h2>💨 シーシャ売上（テーブル別）</h2>
+            <div class="table-scroll">
+              <table class="bulk-table">
+                <thead>
+                  <tr>
+                    <th>TB#</th><th>来店</th><th>退店</th>
+                    <th>男</th><th>女</th><th>台</th>
+                    <th>シーシャ</th><th>ドリンク</th><th>フード</th><th>値引き</th>
+                    <th class="col-total">合計</th>
+                    <th>現金</th><th>カード</th><th>QR</th><th>未収</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="shisha-table-body"></tbody>
+              </table>
+            </div>
+            <button type="button" class="btn-add-row" id="shisha-add-row">＋ テーブルを追加</button>
+            <div class="bulk-summary-bar">
+              <span>売上合計: <strong id="shisha-table-total">¥0</strong></span>
+              <span>来客数: <strong id="shisha-table-guests">0 人</strong></span>
+            </div>
           </div>
-          <div>
-            <label>品目</label>
-            <input type="text" name="item" list="item-list" placeholder="例：シーシャ（1時間）" required>
-            <datalist id="item-list">
-              <option value="シーシャ（1時間）">
-              <option value="シーシャ（2時間）">
-              <option value="シーシャ（3時間）">
-              <option value="フレーバー追加">
-            </datalist>
+
+          <!-- アサイー チャネル別 -->
+          <div class="card bulk-card-acai">
+            <h2>🍇 アサイー売上（チャネル別）</h2>
+            <div class="table-scroll">
+              <table class="bulk-table">
+                <thead>
+                  <tr><th>チャネル</th><th>売上（円）</th><th>手数料（円）</th><th class="col-total">受取額</th></tr>
+                </thead>
+                <tbody>
+                  <tr class="acai-row" data-channel="店頭">
+                    <td class="ch-label">🏪 店頭</td>
+                    <td><input type="number" class="ar-sales" value="0" min="0"></td>
+                    <td><input type="number" class="ar-fee"   value="0" min="0"></td>
+                    <td class="ar-net-display col-total">¥0</td>
+                  </tr>
+                  <tr class="acai-row" data-channel="Rocket Now">
+                    <td class="ch-label">🚀 Rocket Now</td>
+                    <td><input type="number" class="ar-sales" value="0" min="0"></td>
+                    <td><input type="number" class="ar-fee"   value="0" min="0"></td>
+                    <td class="ar-net-display col-total">¥0</td>
+                  </tr>
+                  <tr class="acai-row" data-channel="Uber Eats">
+                    <td class="ch-label">🛵 Uber Eats</td>
+                    <td><input type="number" class="ar-sales" value="0" min="0"></td>
+                    <td><input type="number" class="ar-fee"   value="0" min="0"></td>
+                    <td class="ar-net-display col-total">¥0</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="bulk-summary-bar">
+              <span>合計（手数料控除後）: <strong id="bulk-ac-total">¥0</strong></span>
+            </div>
           </div>
-          <div>
-            <label>数量</label>
-            <input type="number" name="qty" value="1" min="1" required>
+
+          <!-- 経費 テーブル -->
+          <div class="card bulk-card-expense">
+            <h2>💸 経費</h2>
+            <div class="table-scroll">
+              <table class="bulk-table">
+                <thead>
+                  <tr><th>部門</th><th>カテゴリ</th><th>金額（円）</th><th></th></tr>
+                </thead>
+                <tbody id="expense-table-body"></tbody>
+              </table>
+            </div>
+            <button type="button" class="btn-add-row" id="bulk-add-expense">＋ 経費を追加</button>
+            <div class="bulk-summary-bar">
+              <span>経費合計: <strong id="expense-table-total">¥0</strong></span>
+            </div>
           </div>
-          <div>
-            <label>単価（円）</label>
-            <input type="number" name="price" placeholder="1500" min="0" required>
-          </div>
-          <div>
-            <label>メモ</label>
-            <input type="text" name="note" placeholder="任意">
-          </div>
+
+          <button type="submit" class="btn btn-save-big">すべて保存する 💾</button>
+        </form>
+      </div>
+
+      <div id="bulk-saved-state" hidden>
+        <div class="card saved-card">
+          <div class="saved-icon-big">✅</div>
+          <div class="saved-msg-big">保存しました！</div>
+          <div class="saved-detail" id="bulk-saved-detail"></div>
         </div>
-        <div class="form-row">
-          <button type="submit" class="btn btn-primary">記録する</button>
-          <button type="reset" class="btn btn-secondary">リセット</button>
+        <div class="saved-actions">
+          <button class="btn btn-primary"   id="bulk-again-btn">もう一度入力</button>
+          <button class="btn btn-secondary" id="bulk-today-btn">今日の入力に戻る</button>
+          <button class="btn btn-secondary" id="bulk-dashboard-btn">ダッシュボードを見る</button>
         </div>
-      </form>
+      </div>
     </div>
+
+
   </section>
 
   <!-- ── ダッシュボード ── -->
@@ -496,8 +704,28 @@
         <div class="dk-value" id="dk-profit">¥0</div>
       </div>
       <div class="dash-kpi dk-blue">
-        <div class="dk-label">利益率</div>
+        <div class="dk-label">店舗全体 利益率</div>
         <div class="dk-value" id="dk-profit-rate">—</div>
+      </div>
+    </div>
+
+    <!-- 利益率3種 -->
+    <div class="dash-section-label">📊 利益率内訳</div>
+    <div class="dash-kpi-grid profit-rate-grid">
+      <div class="dash-kpi dk-shisha">
+        <div class="dk-label">💨 シーシャ 利益率</div>
+        <div class="dk-value" id="dk-shisha-profit-rate">—</div>
+        <div class="dk-sub">シーシャ売上 − シーシャ経費</div>
+      </div>
+      <div class="dash-kpi dk-acai">
+        <div class="dk-label">🍇 アサイー 利益率</div>
+        <div class="dk-value" id="dk-acai-profit-rate">—</div>
+        <div class="dk-sub">粗利 − アサイー経費</div>
+      </div>
+      <div class="dash-kpi dk-blue">
+        <div class="dk-label">🏪 店舗全体 利益率</div>
+        <div class="dk-value" id="dk-profit-rate-2">—</div>
+        <div class="dk-sub">全売上 − 全経費</div>
       </div>
     </div>
 
@@ -626,26 +854,10 @@
     </div>
   </section>
 
-  <!-- 編集モーダル -->
-  <div id="edit-modal" class="modal-overlay" hidden>
-    <div class="modal-box">
-      <div class="modal-header">
-        <span id="edit-modal-title">編集</span>
-        <button type="button" class="modal-close-btn" id="edit-modal-close">✕</button>
-      </div>
-      <form id="edit-form" autocomplete="off">
-        <div class="modal-body" id="edit-form-body"></div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">保存する</button>
-          <button type="button" class="btn btn-secondary" id="edit-modal-cancel">キャンセル</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
 </main>
 
 <div id="toast" class="toast"></div>
-<script type="module" src="app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
